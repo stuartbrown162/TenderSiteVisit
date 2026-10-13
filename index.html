@@ -1,0 +1,1011 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16201d">
+<title>Site Visit Recorder</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style id="pageStyle"></style>
+<style>
+/* Field-book layout: dark top bar, single-column cards, bottom tab bar; hi-vis orange for capture + photo pins, survey steel for GPS + control points */
+:root{
+  --bg:#eef1f0; --surface:#ffffff; --surface-2:#dfe5e3; --field:#f8faf9;
+  --ink:#16201d; --ink-2:#4d5a56; --line:#c6cfcc;
+  --accent:#d9520c; --accent-ink:#ffffff; --accent-soft:#fbe2d3;
+  --steel:#24596b; --steel-ink:#ffffff; --steel-soft:#d4e5eb;
+  --ok:#1d7a48; --warn:#a86a10; --bad:#b42318;
+  --bar:#16201d; --bar-ink:#eef3f1; --bar-2:#2a3632;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-cond: "Roboto Condensed", "sans-serif-condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-num: "Roboto Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r:10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1413; --surface:#182120; --surface-2:#0a0f0e; --field:#111917;
+  --ink:#e6ecea; --ink-2:#9db0aa; --line:#2d3a37;
+  --accent:#ff6d22; --accent-ink:#1b0b02; --accent-soft:#3b1e0e;
+  --steel:#7fbfd4; --steel-ink:#06202a; --steel-soft:#14303a;
+  --ok:#4cc58a; --warn:#e2a740; --bad:#ff6b5e;
+  --bar:#070b0a; --bar-ink:#e6ecea; --bar-2:#1b2422;
+  color-scheme: dark; } }
+:root[data-theme="dark"]{
+  --bg:#0f1413; --surface:#182120; --surface-2:#0a0f0e; --field:#111917;
+  --ink:#e6ecea; --ink-2:#9db0aa; --line:#2d3a37;
+  --accent:#ff6d22; --accent-ink:#1b0b02; --accent-soft:#3b1e0e;
+  --steel:#7fbfd4; --steel-ink:#06202a; --steel-soft:#14303a;
+  --ok:#4cc58a; --warn:#e2a740; --bad:#ff6b5e;
+  --bar:#070b0a; --bar-ink:#e6ecea; --bar-2:#1b2422;
+  color-scheme: dark; }
+
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--font-ui);-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+img{max-width:100%}
+h2{font-size:17px;margin:0 0 12px;text-wrap:balance}
+h3{font-size:14px;margin:16px 0 8px;font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2)}
+p{margin:0}
+.hint{color:var(--ink-2);font-size:13px}
+.grow{flex:1}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.stack{display:grid;gap:12px}
+.ic{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+
+/* top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bar);color:var(--bar-ink)}
+.visit-switch{display:flex;flex-direction:column;align-items:flex-start;min-width:0;flex:1;background:none;border:0;color:inherit;padding:2px 0;text-align:left;font:inherit;cursor:pointer}
+.vs-label{font:600 11px/1.1 var(--font-cond);letter-spacing:.08em;text-transform:uppercase;opacity:.7;display:flex;align-items:center;gap:4px}
+.vs-label .ic{width:14px;height:14px}
+.vs-title{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.gps-chip{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border-radius:999px;border:1px solid var(--bar-2);background:var(--bar-2);color:var(--bar-ink);font:600 13px var(--font-ui);white-space:nowrap;cursor:pointer}
+.gps-chip .dot{width:9px;height:9px;border-radius:50%;background:#7d8a86}
+.gps-chip[data-q="good"] .dot{background:#3fc27f}
+.gps-chip[data-q="fair"] .dot{background:#e6a83a}
+.gps-chip[data-q="poor"] .dot,.gps-chip[data-state="denied"] .dot{background:#ff5f52}
+.gps-chip[data-state="seeking"] .dot{animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.gps-chip[data-state="seeking"] .dot{animation:none}}
+.save-state{font-size:12px;opacity:.75;min-width:44px;text-align:right}
+
+/* layout */
+main{padding:14px 16px calc(96px + env(safe-area-inset-bottom,0px));max-width:980px;margin:0 auto}
+.tab{display:none}
+.tab.active{display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px}
+.field{display:grid;gap:5px;min-width:0}
+.field + .field{margin-top:10px}
+.grid2 .field + .field{margin-top:0}
+label,.lbl{font:600 12px/1.2 var(--font-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+input,textarea,select{font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--ink);width:100%;min-width:0}
+textarea{resize:vertical;line-height:1.4}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+.banner{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:14px;flex-wrap:wrap}
+.banner.accent{background:var(--accent-soft);color:var(--ink)}
+.banner.steel{background:var(--steel-soft);color:var(--ink)}
+.banner.bad{background:var(--accent-soft);color:var(--bad);font-weight:600}
+.banner > span{flex:1;min-width:180px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 15px var(--font-ui);cursor:pointer;text-decoration:none}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.steel{background:var(--steel);border-color:var(--steel);color:var(--steel-ink)}
+.btn.danger{color:var(--bad)}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.icon{width:44px;padding:0}
+.btn.sm{min-height:36px;padding:0 10px;font-size:14px}
+.btn.big{min-height:56px;font-size:16px;flex:1}
+.linkbtn{background:none;border:0;color:var(--steel);font:600 14px var(--font-ui);padding:6px 2px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;min-height:38px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 14px var(--font-ui);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip.add{border-style:dashed;color:var(--ink-2)}
+.chip-input{width:200px;min-height:38px;padding:6px 12px;border-radius:999px}
+
+/* tab bar */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding:0 0 env(safe-area-inset-bottom,0px)}
+.tabbar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:60px;background:none;border:0;color:var(--ink-2);font:600 11px var(--font-cond);letter-spacing:.05em;text-transform:uppercase;cursor:pointer;position:relative}
+.tabbar button[aria-current="page"]{color:var(--ink)}
+.tabbar button[aria-current="page"]::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;background:var(--accent);border-radius:0 0 3px 3px}
+.tabbar .ic{width:22px;height:22px}
+.tb-badge{position:absolute;top:6px;left:calc(50% + 8px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font:700 11px/18px var(--font-ui);letter-spacing:0}
+.fab{position:fixed;right:16px;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:29;width:60px;height:60px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer}
+.fab .ic{width:28px;height:28px}
+
+/* photos */
+.capture-bar{display:flex;gap:10px;margin-bottom:10px}
+.sticky-tags{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);margin-bottom:12px}
+.sticky-tags b{color:var(--ink)}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px}
+.filters select,.filters input{padding:8px 10px;font-size:15px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.pcard{display:flex;flex-direction:column;text-align:left;padding:0;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);overflow:hidden;cursor:pointer;font:inherit;min-width:0}
+.pc-img{position:relative;aspect-ratio:4/3;background:var(--surface-2);width:100%}
+.pc-img img{width:100%;height:100%;object-fit:cover;display:block}
+.pc-n{position:absolute;left:6px;top:6px;min-width:28px;height:28px;padding:0 7px;border-radius:14px;background:var(--accent);color:#fff;font:700 14px/28px var(--font-ui);text-align:center;border:2px solid #fff}
+.pc-flag{position:absolute;right:6px;top:6px;padding:2px 7px;border-radius:4px;background:var(--bad);color:#fff;font:700 11px var(--font-cond);letter-spacing:.06em;text-transform:uppercase}
+.pc-ex{position:absolute;right:6px;bottom:6px;padding:2px 7px;border-radius:4px;background:rgba(0,0,0,.65);color:#fff;font:600 11px var(--font-cond);text-transform:uppercase}
+.pc-body{padding:8px 10px 10px;display:grid;gap:3px;min-width:0}
+.pc-cap{font-weight:600;font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pc-cap em{color:var(--ink-2);font-weight:400}
+.pc-tags{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-icons{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
+.pc-icons .ic{width:15px;height:15px}
+.pc-icons .on{color:var(--steel)}
+.pc-icons .pin{color:var(--accent)}
+.empty{padding:28px 16px;text-align:center;color:var(--ink-2);border:1.5px dashed var(--line);border-radius:var(--r)}
+.empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+
+/* sheet */
+#backdrop{position:fixed;inset:0;background:rgba(5,10,9,.55);z-index:40}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px));display:flex;flex-direction:column;background:var(--bg);border-radius:16px 16px 0 0;box-shadow:0 -6px 30px rgba(0,0,0,.3);max-width:760px;margin:0 auto}
+.sheet.full{top:env(safe-area-inset-top,0px);max-height:none;border-radius:0}
+.sh-head{display:flex;align-items:center;gap:4px;padding:8px 8px 8px 12px;border-bottom:1px solid var(--line);background:var(--surface);border-radius:16px 16px 0 0}
+.sheet.full .sh-head{border-radius:0}
+.sh-head h2{margin:0 6px;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-body{overflow:auto;padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:14px;align-content:start}
+.ed-img{background:#000;border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:160px}
+.ed-img img{max-height:44dvh;object-fit:contain;display:block}
+.ed-meta{font-size:13px;color:var(--ink-2);display:flex;gap:6px 12px;flex-wrap:wrap}
+.toggle{display:flex;align-items:center;gap:10px;min-height:44px;font:600 15px var(--font-ui);text-transform:none;letter-spacing:0;color:var(--ink);cursor:pointer}
+.toggle input{width:22px;height:22px;accent-color:var(--accent);flex:none}
+.posbox{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:8px;background:var(--surface)}
+.posbox .coords{font-family:var(--font-num);font-size:13px}
+.vrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.vrow:last-child{border-bottom:0}
+.vrow .vmain{flex:1;min-width:160px}
+.vrow .vmain b{display:block}
+.vrow .vmain span{font-size:13px;color:var(--ink-2)}
+.vrow.current{background:var(--accent-soft);margin:0 -8px;padding:10px 8px;border-radius:8px}
+.pin-thumb{width:100%;max-height:40dvh;object-fit:contain;background:#000;border-radius:8px}
+
+/* list editors */
+.list-ed{display:grid;gap:6px}
+.le-row{display:flex;gap:6px}
+.le-row input{padding:8px 10px}
+.att-row{display:grid;grid-template-columns:1.2fr 1fr 1fr 44px;gap:6px;align-items:center}
+.att-row.m{grid-template-columns:1.2fr 1fr 1fr 110px 44px}
+@media (max-width:560px){.att-row,.att-row.m{grid-template-columns:1fr 1fr;padding:8px;border:1px solid var(--line);border-radius:8px}.att-row > :last-child{justify-self:end}}
+.logo-prev{max-height:60px;max-width:200px;background:#fff;padding:6px;border-radius:6px;border:1px solid var(--line)}
+
+/* drawing */
+.dwg-bar{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.dwg-bar select{flex:1;min-width:140px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{min-height:40px;padding:0 14px;border:0;background:none;color:var(--ink-2);font:600 14px var(--font-ui);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg .ic{width:16px;height:16px}
+#dwgStatus{margin:8px 0}
+.status-line{font-size:13px;color:var(--ink-2)}
+.dwg-view{position:relative;height:62dvh;min-height:300px;overflow:hidden;background:var(--surface-2);border-radius:var(--r);border:1px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
+.dwg-stage{position:absolute;left:0;top:0;transform-origin:0 0;--inv:1}
+.dwg-stage img{display:block;max-width:none;background:#fff;pointer-events:none}
+#dwgMarks{position:absolute;inset:0;pointer-events:none}
+.mk{position:absolute;transform:translate(-50%,-50%) scale(var(--inv));display:flex;align-items:center;justify-content:center;pointer-events:none}
+.mk.ph{min-width:28px;height:28px;padding:0 6px;border-radius:14px;background:var(--accent);color:#fff;font:700 13px/1 var(--font-ui);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.mk.ph.man{background:#b8440a}
+.mk.ph.sel{box-shadow:0 0 0 4px var(--steel),0 1px 4px rgba(0,0,0,.45)}
+.mk.cp{width:30px;height:30px;color:#fff}
+.mk.cp svg{position:absolute;inset:0;width:30px;height:30px}
+.mk.cp span{position:relative;font:700 11px var(--font-ui);transform:translate(10px,-10px);background:#24596b;padding:1px 4px;border-radius:3px}
+.mk.me{width:18px;height:18px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+.me-acc{position:absolute;transform:translate(-50%,-50%);border-radius:50%;background:rgba(26,115,232,.15);border:1px solid rgba(26,115,232,.5);pointer-events:none}
+.dwg-zoom{position:absolute;right:8px;top:8px;display:grid;gap:6px;z-index:2}
+.dwg-zoom button{width:44px;height:44px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:700 18px var(--font-ui);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.dwg-zoom button.txt{font-size:11px;font-family:var(--font-cond);text-transform:uppercase;letter-spacing:.04em}
+#dwgBelow{margin-top:12px}
+.cp-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.cp-row .cp-n{width:28px;height:28px;border-radius:6px;background:var(--steel);color:var(--steel-ink);font:700 13px/28px var(--font-ui);text-align:center;flex:none}
+.cp-row .cp-main{flex:1;min-width:0;font-size:13px}
+.res-good{color:var(--ok)} .res-fair{color:var(--warn)} .res-bad{color:var(--bad)}
+
+/* minutes */
+details.meet{padding:0;overflow:hidden}
+details.meet > summary{list-style:none;display:flex;align-items:center;gap:10px;padding:14px;cursor:pointer}
+details.meet > summary::-webkit-details-marker{display:none}
+details.meet[open] > summary{border-bottom:1px solid var(--line)}
+.m-no{font:700 13px var(--font-num);background:var(--ink);color:var(--bg);border-radius:6px;padding:4px 7px}
+.m-title{font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-sub{font-size:12px;color:var(--ink-2);white-space:nowrap}
+.meet-body{padding:14px;display:grid;gap:12px}
+.item{border:1px solid var(--line);border-radius:8px;padding:10px;display:grid;gap:8px;background:var(--field)}
+.item-head{display:flex;gap:6px;align-items:center}
+.item-head .i-no{font:700 14px var(--font-num);min-width:34px}
+.item-head input{flex:1}
+.item-head select{width:auto;flex:none;padding:8px}
+.grid3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px}
+@media (max-width:560px){.grid3{grid-template-columns:1fr 1fr}.grid3 > :first-child{grid-column:1/-1}}
+
+/* report preview */
+.rpt-controls{margin-bottom:12px}
+.secs{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0 12px}
+.secs .toggle{min-height:38px;font-size:14px}
+.rpt-wrap{background:var(--surface-2);border-radius:var(--r);padding:12px;overflow:hidden}
+.rpt-scale{width:210mm}
+
+/* ---------- report (paper: always light) ---------- */
+.rpt{color:#1b1f1e;font:9.5pt/1.42 var(--font-ui)}
+.r-sheet{width:210mm;background:#fff;padding:14mm 12mm;margin:0 0 12px;box-shadow:0 1px 6px rgba(0,0,0,.25)}
+.r-head{display:flex;gap:6mm;align-items:flex-start;border-bottom:1.4pt solid #1b1f1e;padding-bottom:4mm;margin-bottom:5mm}
+.r-logo img{max-height:18mm;max-width:45mm;display:block}
+.r-titles{flex:1;min-width:0}
+.r-kicker{font:700 8pt var(--font-cond);letter-spacing:.1em;text-transform:uppercase;color:#59625f}
+.rpt h1{font-size:19pt;line-height:1.12;margin:1mm 0 1.5mm;text-wrap:balance}
+.r-sub{font-size:10.5pt;color:#333}
+.r-docbox{border-collapse:collapse;font-size:8.5pt;flex:none}
+.r-docbox th,.r-docbox td{border:.5pt solid #8e9895;padding:1mm 2mm;text-align:left}
+.r-docbox th{background:#eceeed;font-weight:600}
+.rpt h2{font-size:12pt;margin:6mm 0 2.5mm;padding-bottom:1mm;border-bottom:.7pt solid #8e9895;break-after:avoid;display:flex;gap:3mm;color:#1b1f1e}
+.r-num{color:#59625f;font-variant-numeric:tabular-nums}
+.rpt h3{font:700 10.5pt var(--font-ui);text-transform:none;letter-spacing:0;color:#1b1f1e;margin:4mm 0 1.5mm;break-after:avoid}
+.rpt section:first-of-type h2{margin-top:0}
+.r-t{width:100%;border-collapse:collapse;font-size:8.8pt;margin:1.5mm 0}
+.r-t th,.r-t td{border:.5pt solid #9ba5a2;padding:1.2mm 1.8mm;vertical-align:top;text-align:left}
+.r-t th{background:#eceeed;font-weight:600}
+.r-t tr{break-inside:avoid}
+.r-kv th{width:40mm}
+.r-pre{white-space:pre-wrap}
+.r-mline{color:#444;margin:0 0 1.5mm}
+.r-dwg img{width:100%;max-height:235mm;object-fit:contain;border:.5pt solid #9ba5a2;display:block}
+.r-note{font-size:8.5pt;color:#555;margin-top:2mm}
+.r-pgrid{display:grid;gap:5mm}
+.r-pp1,.r-pp2{grid-template-columns:1fr}
+.r-pp4,.r-pp6{grid-template-columns:1fr 1fr}
+.r-pp1{--imh:160mm}.r-pp2{--imh:96mm}.r-pp4{--imh:76mm}.r-pp6{--imh:52mm}
+.r-ph{break-inside:avoid;border:.5pt solid #9ba5a2;margin:0;display:flex;flex-direction:column}
+.r-ph .im{height:var(--imh);background:#f1f3f2;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.r-ph .im img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.r-ph .meta{padding:2mm 2.5mm;font-size:8.5pt;display:grid;gap:.8mm;border-top:.5pt solid #9ba5a2}
+.r-phhead{display:flex;justify-content:space-between;gap:2mm}
+.r-phhead .ttl{font-weight:700}
+.r-phhead .when{color:#59625f}
+.r-ph .cap{font-weight:600}
+.r-ph .tags{color:#3c4441}
+.r-ph .tags b{font:700 7pt var(--font-cond);letter-spacing:.06em;text-transform:uppercase;color:#59625f}
+.r-coord{font-family:var(--font-num);font-size:7.5pt;color:#59625f}
+.r-badge{display:inline-block;padding:0 1.5mm;border:.7pt solid #b42318;color:#b42318;font:700 7pt var(--font-cond);letter-spacing:.06em;text-transform:uppercase;vertical-align:1px}
+.r-empty{color:#777;font-style:italic}
+
+/* toast */
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom,0px));z-index:60;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+
+@media print{
+  @page{size:A4 portrait;margin:14mm 12mm 16mm}
+  html,body{background:#fff!important}
+  .topbar,.tabbar,.fab,.rpt-controls,#sheet,#backdrop,#toast,.tab:not(#tab-report){display:none!important}
+  main{padding:0;max-width:none}
+  #tab-report{display:block!important}
+  .rpt-wrap{padding:0;background:none;overflow:visible}
+  .rpt-scale{zoom:1!important;width:auto}
+  .r-sheet{width:auto;padding:0;margin:0;box-shadow:none}
+  .r-sheet + .r-sheet{break-before:page}
+  .rpt{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="visit-switch" data-act="visits" aria-label="Switch or manage visits">
+    <span class="vs-label">Site visit <svg class="ic" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
+    <span class="vs-title" id="visitTitle">Loading…</span>
+  </button>
+  <button class="gps-chip" id="gpsChip" data-act="gps" data-state="off"><span class="dot"></span><span id="gpsText">GPS off</span></button>
+  <span class="save-state" id="saveState" aria-live="polite"></span>
+</header>
+
+<main id="main">
+  <div id="storageWarn" class="banner bad" hidden style="margin-bottom:12px"><span>This browser isn't letting the app store data on the device. Everything will be lost when the page closes. Export a backup before you leave.</span></div>
+  <section class="tab" id="tab-visit" data-tab="visit"></section>
+  <section class="tab" id="tab-photos" data-tab="photos"></section>
+  <section class="tab" id="tab-drawing" data-tab="drawing"></section>
+  <section class="tab" id="tab-minutes" data-tab="minutes"></section>
+  <section class="tab" id="tab-report" data-tab="report"></section>
+</main>
+
+<button class="fab" id="fab" data-act="cam" aria-label="Take photo"></button>
+
+<nav class="tabbar" aria-label="Sections">
+  <button data-go="visit"></button>
+  <button data-go="photos"></button>
+  <button data-go="drawing"></button>
+  <button data-go="minutes"></button>
+  <button data-go="report"></button>
+</nav>
+
+<div id="backdrop" hidden></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true" hidden></div>
+<div id="toast" role="status" hidden></div>
+
+<input type="file" id="inCamera" accept="image/*" capture="environment" hidden>
+<input type="file" id="inGallery" accept="image/*" multiple hidden>
+<input type="file" id="inDrawing" accept="application/pdf,.pdf,image/*" hidden>
+<input type="file" id="inLogo" accept="image/*" hidden>
+<input type="file" id="inImport" accept="application/json,.json" hidden>
+
+<script>
+'use strict';
+/* ================= utilities ================= */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const LS={get(k,d){try{const v=localStorage.getItem('svr.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('svr.'+k,JSON.stringify(v))}catch(e){}}};
+const pad=n=>String(n).padStart(2,'0');
+const isoDate=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+function fmtDate(iso){if(!iso)return '—';const [y,m,d]=iso.split('-').map(Number);if(!y)return iso;return new Date(y,m-1,d).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})}
+function fmtDT(ts){if(!ts)return '—';return new Date(ts).toLocaleString('en-AU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+const fmtLL=(lat,lon)=>`${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+const P={
+ cam:'<path d="M3 8h3.5l2-3h7l2 3H21v11H3z"/><circle cx="12" cy="13" r="3.8"/>',
+ img:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+ pin:'<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
+ gps:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ x:'<path d="M6 6l12 12M18 6L6 18"/>',
+ left:'<path d="M15 5l-7 7 7 7"/>', right:'<path d="M9 5l7 7-7 7"/>',
+ up:'<path d="M12 19V5M6 11l6-6 6 6"/>', down:'<path d="M12 5v14M6 13l6 6 6-6"/>',
+ print:'<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="1"/><path d="M6 14h12v7H6z"/>',
+ clip:'<path d="M9 3h6v3H9z"/><path d="M7 5H5v16h14V5h-2"/><path d="M8.5 11h7M8.5 15h5"/>',
+ list:'<path d="M9 6h11M9 12h11M9 18h11M4 6h.5M4 12h.5M4 18h.5"/>',
+ map:'<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>',
+ dl:'<path d="M12 4v11M7 10l5 5 5-5M4 20h16"/>', ul:'<path d="M12 16V5M7 10l5-5 5 5M4 20h16"/>',
+ flag:'<path d="M5 21V4h11l-2 4 2 4H5"/>',
+ trash:'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+ target:'<circle cx="12" cy="12" r="8"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/>'
+};
+const ic=(n,c='')=>`<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
+
+/* ================= storage (IndexedDB with in-memory fallback) ================= */
+let db=null;
+const MEM={visits:new Map(),photos:new Map(),blobs:new Map()};
+function openDB(){return new Promise((res,rej)=>{let r;try{r=indexedDB.open('site-visit-recorder',1)}catch(e){return rej(e)}
+ r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('visits'))d.createObjectStore('visits',{keyPath:'id'});
+  if(!d.objectStoreNames.contains('photos')){d.createObjectStore('photos',{keyPath:'id'}).createIndex('visitId','visitId')}
+  if(!d.objectStoreNames.contains('blobs'))d.createObjectStore('blobs',{keyPath:'id'})};
+ r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))})}
+function memStore(name){const m=MEM[name];return{put:v=>{m.set(v.id,v);return{result:v.id}},get:k=>({result:m.get(k)}),delete:k=>{m.delete(k);return{result:undefined}},getAll:()=>({result:[...m.values()]}),
+ index:()=>({getAll:vid=>({result:[...m.values()].filter(x=>x.visitId===vid)}),count:vid=>({result:[...m.values()].filter(x=>x.visitId===vid).length})})}}
+function idb(store,mode,fn){if(!db)return Promise.resolve(fn(memStore(store)).result);
+ return new Promise((res,rej)=>{const t=db.transaction(store,mode);const r=fn(t.objectStore(store));t.oncomplete=()=>res(r?r.result:undefined);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error('Storage aborted'))})}
+const dbPut=(s,v)=>idb(s,'readwrite',o=>o.put(v));
+const dbGet=(s,k)=>idb(s,'readonly',o=>o.get(k));
+const dbDel=(s,k)=>idb(s,'readwrite',o=>o.delete(k));
+const dbAll=s=>idb(s,'readonly',o=>o.getAll());
+const dbByVisit=vid=>idb('photos','readonly',o=>o.index('visitId').getAll(vid));
+const dbCountVisit=vid=>idb('photos','readonly',o=>o.index('visitId').count(vid));
+
+/* ================= model ================= */
+const DEFAULT_CATS=['Progress / general','Earthworks','Drainage & culverts','Roads & pavements','Concrete & structures','Services','Plant & equipment','Temporary works & laydown','HSE','Quality / defect','Environmental','Survey & set-out'];
+function newVisit(){return{id:uid(),created:Date.now(),updated:Date.now(),
+ info:{project:'',client:'Hicks Civil and Mining',jobNo:'',site:'',date:isoDate(new Date()),timeOn:'',timeOff:'',preparedBy:'',company:'',purpose:'',weather:'',notes:''},
+ attendees:[],logo:null,
+ lists:{sp:[],loc:[],cat:[...DEFAULT_CATS]},
+ sticky:{sp:'',loc:'',cat:''},
+ meetings:[],drawings:[],activeDrawing:null,
+ report:{title:'Site Visit Report',no:'',rev:'A',summary:'',perPage:'2',order:'n',only:'all',coords:false,
+  sec:{details:true,summary:true,attendees:true,minutes:true,actions:true,notes:true,drawings:true,photos:true}},
+ lastBackup:null}}
+function fillDefaults(t,d){for(const k in d){if(t[k]===undefined)t[k]=structuredClone(d[k]);else if(d[k]&&typeof d[k]==='object'&&!Array.isArray(d[k])&&t[k]&&typeof t[k]==='object')fillDefaults(t[k],d[k])}return t}
+const KEYLABEL={sp:'separable portion',loc:'location',cat:'category'};
+
+const S={visit:null,photos:[],urls:new Map(),tab:'photos',edit:null,filter:{sp:'',loc:'',q:''},view:{},sel:null,openMeets:new Set()};
+
+/* ================= saving ================= */
+let saveT=null;
+function setSave(t){$('#saveState').textContent=t}
+function touch(){if(!S.visit)return;S.visit.updated=Date.now();setSave('Saving…');clearTimeout(saveT);saveT=setTimeout(saveVisit,500)}
+async function saveVisit(){clearTimeout(saveT);saveT=null;try{await dbPut('visits',S.visit);setSave(db?'Saved':'Not stored')}catch(e){setSave('Not saved');toast('Could not save: '+(e.message||e))}}
+const pTimers=new Map();
+async function savePhoto(p){p.updated=Date.now();try{await dbPut('photos',p)}catch(e){toast('Could not save photo: '+(e.message||e))}}
+function touchPhoto(p){setSave('Saving…');clearTimeout(pTimers.get(p.id));pTimers.set(p.id,setTimeout(()=>{pTimers.delete(p.id);savePhoto(p).then(()=>setSave(db?'Saved':'Not stored'))},400))}
+async function flushAll(){if(saveT)await saveVisit();for(const [id,t] of pTimers){clearTimeout(t);const p=S.photos.find(x=>x.id===id);if(p)await savePhoto(p)}pTimers.clear()}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushAll()});
+window.addEventListener('pagehide',()=>{flushAll()});
+
+/* ================= toast ================= */
+let toastT=null;
+function toast(msg,ms=2800){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,ms)}
+
+/* ================= sheets ================= */
+let sheetOpen=false,sheetOnClose=null;
+function openSheet(html,{full=false,onClose=null}={}){const s=$('#sheet');s.innerHTML=html;s.classList.toggle('full',full);s.hidden=false;$('#backdrop').hidden=false;
+ if(!sheetOpen){try{history.pushState({sheet:1},'')}catch(e){}}sheetOpen=true;sheetOnClose=onClose;const b=$('.sh-body',s);if(b)b.scrollTop=0}
+function hideSheet(){$('#sheet').hidden=true;$('#backdrop').hidden=true;$('#sheet').innerHTML='';const f=sheetOnClose;sheetOnClose=null;S.edit=null;if(f)f()}
+function closeSheet(){if(!sheetOpen)return;sheetOpen=false;hideSheet();try{if(history.state&&history.state.sheet)history.back()}catch(e){}}
+window.addEventListener('popstate',()=>{if(sheetOpen){sheetOpen=false;hideSheet()}});
+$('#backdrop').addEventListener('click',closeSheet);
+const sheetHead=(title,extra='')=>`<div class="sh-head">${extra}<h2>${title}</h2><span class="grow"></span><button class="btn icon ghost" data-act="sheet-close" aria-label="Close">${ic('x')}</button></div>`;
+
+/* ================= GPS ================= */
+const GPS={state:'off',fix:null,watch:null,err:''};
+function gpsStart(){if(!('geolocation' in navigator)){GPS.state='unsupported';renderGps();return}
+ if(GPS.watch!=null)return;GPS.state='seeking';renderGps();
+ try{GPS.watch=navigator.geolocation.watchPosition(p=>{GPS.fix={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,t:Date.now()};GPS.state='on';renderGps();onGpsFix()},
+  err=>{if(err.code===1){GPS.state='denied';GPS.err=err.message;try{navigator.geolocation.clearWatch(GPS.watch)}catch(e){}GPS.watch=null}else if(!GPS.fix){GPS.state='seeking';GPS.err=err.message}renderGps()},
+  {enableHighAccuracy:true,maximumAge:3000,timeout:30000})}catch(e){GPS.state='denied';GPS.err=e.message;renderGps()}}
+function gpsStop(){if(GPS.watch!=null)try{navigator.geolocation.clearWatch(GPS.watch)}catch(e){}GPS.watch=null;GPS.state='off';GPS.fix=null;renderGps();if(S.tab==='drawing')renderMarks()}
+const fixAge=()=>GPS.fix?Date.now()-GPS.fix.t:Infinity;
+function renderGps(){const c=$('#gpsChip');c.dataset.state=GPS.state;let t='GPS off',q='';
+ if(GPS.state==='seeking')t='Finding GPS…';
+ else if(GPS.state==='on'&&GPS.fix){const a=Math.round(GPS.fix.acc);t=`GPS ±${a} m`;q=a<=10?'good':a<=30?'fair':'poor';if(fixAge()>60000){t='GPS stale';q='poor'}}
+ else if(GPS.state==='denied')t='GPS blocked';else if(GPS.state==='unsupported')t='No GPS';
+ c.dataset.q=q;$('#gpsText').textContent=t}
+setInterval(()=>{if(GPS.state==='on')renderGps()},15000);
+function waitForFix(ms){return new Promise(res=>{if(GPS.fix&&fixAge()<20000)return res(GPS.fix);const t0=Date.now();const iv=setInterval(()=>{if((GPS.fix&&fixAge()<20000)||Date.now()-t0>ms){clearInterval(iv);res(GPS.fix&&fixAge()<120000?GPS.fix:null)}},250)})}
+function onGpsFix(){if(S.tab==='drawing')renderMarks()}
+function avgGps(sec,onUpd){return new Promise((res,rej)=>{if(!('geolocation' in navigator))return rej(new Error('This device has no GPS access'));
+ const pts=[];const t0=Date.now();let id;
+ try{id=navigator.geolocation.watchPosition(p=>{pts.push(p.coords);onUpd&&onUpd(pts,Date.now()-t0)},err=>{if(err.code===1){clearInterval(tk);navigator.geolocation.clearWatch(id);rej(new Error('Location permission is blocked'))}},{enableHighAccuracy:true,maximumAge:0,timeout:20000})}catch(e){return rej(e)}
+ const tk=setInterval(()=>{onUpd&&onUpd(pts,Date.now()-t0);if(Date.now()-t0>=sec*1000){clearInterval(tk);navigator.geolocation.clearWatch(id);
+  if(!pts.length)return rej(new Error('No GPS readings received. Check location is on and try again outside.'));
+  let sw=0,la=0,lo=0,best=Infinity;for(const c of pts){const w=1/Math.max(1,c.accuracy)**2;sw+=w;la+=c.latitude*w;lo+=c.longitude*w;best=Math.min(best,c.accuracy)}
+  res({lat:la/sw,lon:lo/sw,acc:best,n:pts.length})}},250)})}
+
+/* ================= EXIF ================= */
+function readExif(buf){try{const v=new DataView(buf);if(v.byteLength<4||v.getUint16(0)!==0xFFD8)return null;let o=2;
+ while(o<v.byteLength-4){const mk=v.getUint16(o);if((mk&0xFF00)!==0xFF00)break;const len=v.getUint16(o+2);
+  if(mk===0xFFE1&&v.getUint32(o+4)===0x45786966)return parseTiff(v,o+10);if(mk===0xFFDA)break;o+=2+len}}catch(e){}return null}
+function parseTiff(v,t){const le=v.getUint16(t)===0x4949;const g16=o=>v.getUint16(o,le),g32=o=>v.getUint32(o,le);
+ const rd=o=>{const n=g16(o),tags={};for(let i=0;i<n;i++){const e=o+2+i*12;tags[g16(e)]={type:g16(e+2),count:g32(e+4),vo:e+8}}return tags};
+ const val=tg=>{const {type,count,vo}=tg;const sz={1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8}[type]||1;const p=sz*count>4?t+g32(vo):vo;
+  if(type===2){let s='';for(let i=0;i<count;i++){const c=v.getUint8(p+i);if(!c)break;s+=String.fromCharCode(c)}return s}
+  if(type===5||type===10){const a=[];for(let i=0;i<count;i++){const n=type===5?g32(p+i*8):v.getInt32(p+i*8,le),d=type===5?g32(p+i*8+4):v.getInt32(p+i*8+4,le);a.push(d?n/d:0)}return a}
+  if(type===3){const a=[];for(let i=0;i<count;i++)a.push(g16(p+i*2));return count===1?a[0]:a}
+  if(type===4){const a=[];for(let i=0;i<count;i++)a.push(g32(p+i*4));return count===1?a[0]:a}
+  return null};
+ const out={};const t0=rd(t+g32(t+4));
+ if(t0[0x8769]){const ex=rd(t+val(t0[0x8769]));if(ex[0x9003])out.dto=val(ex[0x9003])}
+ if(!out.dto&&t0[0x0132])out.dto=val(t0[0x0132]);
+ if(t0[0x8825]){const g=rd(t+val(t0[0x8825]));
+  if(g[2]&&g[4]){const la=val(g[2]),lo=val(g[4]);let lat=la[0]+la[1]/60+la[2]/3600,lon=lo[0]+lo[1]/60+lo[2]/3600;
+   if((g[1]?val(g[1]):'N').toUpperCase()==='S')lat=-lat;if((g[3]?val(g[3]):'E').toUpperCase()==='W')lon=-lon;
+   if(isFinite(lat)&&isFinite(lon)&&!(lat===0&&lon===0)){out.lat=lat;out.lon=lon}}
+  if(g[0x1F]){const a=val(g[0x1F]);if(a&&a[0])out.acc=a[0]}}
+ return out}
+function exifDate(s){const m=/^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/.exec(s||'');return m?new Date(+m[1],m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime():null}
+
+/* ================= images ================= */
+async function loadBitmap(file){try{return await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){
+ return await new Promise((res,rej)=>{const im=new Image();const u=URL.createObjectURL(file);im.onload=()=>{res(im)};im.onerror=()=>rej(new Error('Could not read that image'));im.src=u})}}
+function canvasFrom(src,max){const w=src.width,h=src.height;const k=Math.min(1,max/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*k));c.height=Math.max(1,Math.round(h*k));const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(src,0,0,c.width,c.height);return c}
+const toBlob=(c,type='image/jpeg',q=.85)=>new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('Image too large for this device')),type,q));
+function loadImg(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('image load failed'));i.src=src})}
+async function blobURL(id){if(!id)return null;if(S.urls.has(id))return S.urls.get(id);const r=await dbGet('blobs',id);if(!r)return null;const u=URL.createObjectURL(r.blob);S.urls.set(id,u);return u}
+function revokeAll(){for(const u of S.urls.values())URL.revokeObjectURL(u);S.urls.clear()}
+const blobToDataURL=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b)});
+function dataURLtoBlob(u){const i=u.indexOf(',');const mime=(/data:([^;,]+)/.exec(u.slice(0,i))||[])[1]||'application/octet-stream';const bin=atob(u.slice(i+1));const a=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)a[k]=bin.charCodeAt(k);return new Blob([a],{type:mime})}
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},5000)}
+
+/* ================= photos ================= */
+const sortedPhotos=()=>[...S.photos].sort((a,b)=>a.n-b.n);
+const nextN=()=>S.photos.reduce((m,p)=>Math.max(m,p.n||0),0)+1;
+async function addFiles(files,viaCamera){
+ let added=[];toast(files.length>1?`Saving ${files.length} photos…`:'Saving photo…',60000);
+ let fix=null;if(viaCamera&&GPS.state!=='off'&&GPS.state!=='denied')fix=await waitForFix(4000);
+ for(const file of files){try{
+  let exif=null;if(/jpe?g/i.test(file.type)||/\.jpe?g$/i.test(file.name)){exif=readExif(await file.slice(0,262144).arrayBuffer())}
+  const bmp=await loadBitmap(file);const full=canvasFrom(bmp,2048);if(bmp.close)bmp.close();
+  const blob=await toBlob(full,'image/jpeg',.82);const thumb=canvasFrom(full,360).toDataURL('image/jpeg',.7);
+  const blobId=uid();await dbPut('blobs',{id:blobId,blob});
+  const p={id:uid(),visitId:S.visit.id,n:nextN(),blobId,thumb,w:full.width,h:full.height,
+   taken:exifDate(exif&&exif.dto)||(viaCamera?Date.now():(file.lastModified||Date.now())),
+   lat:null,lon:null,acc:null,gpsSrc:null,
+   sp:S.visit.sticky.sp||'',loc:S.visit.sticky.loc||'',cat:S.visit.sticky.cat||'',
+   caption:'',comment:'',action:false,actionText:'',actionBy:'',actionDue:'',include:true,pin:null,created:Date.now()};
+  if(viaCamera&&fix){p.lat=fix.lat;p.lon=fix.lon;p.acc=fix.acc;p.gpsSrc='device'}
+  else if(exif&&exif.lat!=null){p.lat=exif.lat;p.lon=exif.lon;p.acc=exif.acc||null;p.gpsSrc='photo'}
+  autopin(p);await dbPut('photos',p);S.photos.push(p);added.push(p);
+ }catch(e){toast('Could not add '+file.name+': '+(e.message||e),5000)}}
+ renderHeader();if(S.tab==='photos')renderPhotos();if(S.tab==='drawing')refreshDrawingBits();
+ if(added.length===1){$('#toast').hidden=true;openPhoto(added[0].id)}else if(added.length)toast(`Added ${added.length} photos`);
+}
+const gpsSrcLabel={device:'phone GPS',photo:'photo tag',manual:'entered'};
+function gpsLabel(p){return p.lat!=null?`GPS${p.acc?` ±${Math.round(p.acc)} m`:''} (${gpsSrcLabel[p.gpsSrc]||'GPS'})`:'No GPS'}
+function pinLabel(p){if(!p.pin)return 'Not on a drawing';const d=S.visit.drawings.find(x=>x.id===p.pin.d);return `Pinned on ${esc(d?d.name:'drawing')}${p.pin.manual?' (placed by hand)':''}`}
+
+function renderPhotos(){const v=S.visit,el=$('#tab-photos');const st=v.sticky;
+ el.innerHTML=`<div class="capture-bar"><button class="btn primary big" data-act="cam">${ic('cam')} Take photo</button><button class="btn big" data-act="gallery">${ic('img')} From gallery</button></div>
+ <div class="sticky-tags">New photos tagged: <b>${esc(st.sp)||'no SP'}</b> · <b>${esc(st.loc)||'no location'}</b>${st.cat?` · <b>${esc(st.cat)}</b>`:''} <button class="linkbtn" data-act="sticky">Change</button></div>
+ ${S.photos.length?`<div class="filters">
+  <select id="fSp" data-filter="sp" aria-label="Filter by separable portion"><option value="">All separable portions</option>${v.lists.sp.filter(Boolean).map(x=>`<option ${S.filter.sp===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
+  <select id="fLoc" data-filter="loc" aria-label="Filter by location"><option value="">All locations</option>${v.lists.loc.filter(Boolean).map(x=>`<option ${S.filter.loc===x?'selected':''}>${esc(x)}</option>`).join('')}</select>
+  <input id="fQ" data-filter="q" type="search" placeholder="Search captions & comments" value="${esc(S.filter.q)}">
+ </div><div class="row" style="margin-bottom:10px"><span class="hint" id="pCount"></span><span class="grow"></span><button class="linkbtn" data-act="renumber">Renumber by time taken</button></div>`:''}
+ <div id="pgrid"></div>`;
+ renderGrid()}
+function renderGrid(){const g=$('#pgrid');if(!g)return;const f=S.filter,q=f.q.trim().toLowerCase();
+ const list=sortedPhotos().filter(p=>(!f.sp||p.sp===f.sp)&&(!f.loc||p.loc===f.loc)&&(!q||(p.caption+' '+p.comment+' '+p.sp+' '+p.loc+' '+p.cat).toLowerCase().includes(q)));
+ if(!S.photos.length){g.className='';g.innerHTML=`<div class="empty"><strong>No photos yet</strong>Take the first one with the button above. Each photo saves to this phone straight away, with its GPS position if location is on.</div>`;return}
+ const pc=$('#pCount');if(pc)pc.textContent=`${list.length} of ${S.photos.length} photos`;
+ g.className='pgrid';g.innerHTML=list.length?list.map(p=>`<button class="pcard" data-act="photo-open" data-id="${p.id}">
+  <div class="pc-img"><img src="${p.thumb}" alt="" loading="lazy"><span class="pc-n">${p.n}</span>${p.action?'<span class="pc-flag">Action</span>':''}${!p.include?'<span class="pc-ex">Not in report</span>':''}</div>
+  <div class="pc-body"><div class="pc-cap">${p.caption?esc(p.caption):'<em>No caption yet</em>'}</div>
+  <div class="pc-tags">${esc([p.sp,p.loc].filter(Boolean).join(' · '))||'&nbsp;'}</div>
+  <div class="pc-icons">${p.lat!=null?`<span class="on" title="Has GPS">${ic('gps')}</span>`:''}${p.pin?`<span class="pin" title="On drawing">${ic('pin')}</span>`:''}<span>${new Date(p.taken).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})}</span></div></div></button>`).join(''):`<div class="empty" style="grid-column:1/-1">No photos match these filters.</div>`}
+
+function chipGroup(label,key,val,mode){const arr=S.visit.lists[key].filter(Boolean);
+ return `<div class="field" data-chipwrap="${key}" data-label="${esc(label)}" data-mode="${mode}"><span class="lbl">${label}</span><div class="chips">${arr.map(x=>`<button type="button" class="chip" data-act="chip" data-mode="${mode}" data-key="${key}" data-val="${esc(x)}" aria-pressed="${x===val}">${esc(x)}</button>`).join('')}<button type="button" class="chip add" data-act="chip-new" data-mode="${mode}" data-key="${key}">+ New</button></div></div>`}
+function setPressed(wrap,val){$$('.chip[data-val]',wrap).forEach(c=>c.setAttribute('aria-pressed',String(c.dataset.val===val)))}
+function chipTarget(mode,key){return mode==='ed'?(S.edit?S.edit[key]:''):S.visit.sticky[key]}
+function chipSet(mode,key,val){if(mode==='ed'&&S.edit){S.edit[key]=val;S.visit.sticky[key]=val;touchPhoto(S.edit);touch()}else{S.visit.sticky[key]=val;touch()}}
+
+function editorHTML(p){const list=sortedPhotos();const i=list.findIndex(x=>x.id===p.id);
+ return `${sheetHead(`Photo ${p.n}`,`<button class="btn icon ghost" data-act="ed-prev" aria-label="Previous photo" ${i<=0?'disabled':''}>${ic('left')}</button><button class="btn icon ghost" data-act="ed-next" aria-label="Next photo" ${i>=list.length-1?'disabled':''}>${ic('right')}</button>`)}
+ <div class="sh-body">
+  <div class="ed-img"><img id="edImg" src="${p.thumb}" alt="Photo ${p.n}"></div>
+  <div class="ed-meta"><span>${fmtDT(p.taken)}</span><span>${gpsLabel(p)}</span><span>${pinLabel(p)}</span></div>
+  <div class="field"><label for="edCaption">What does this photo show?</label><textarea id="edCaption" rows="2" data-pbind="caption" placeholder="e.g. Culvert headwall formwork, looking north">${esc(p.caption)}</textarea></div>
+  ${chipGroup('Separable portion','sp',p.sp,'ed')}
+  ${chipGroup('Location / area','loc',p.loc,'ed')}
+  ${chipGroup('Category','cat',p.cat,'ed')}
+  <div class="field"><label for="edComment">Comments</label><textarea id="edComment" rows="3" data-pbind="comment" placeholder="Observations, quantities, issues, who you spoke to">${esc(p.comment)}</textarea></div>
+  <div><label class="toggle"><input type="checkbox" id="edAct" data-pbind="action" ${p.action?'checked':''}> Action required</label>
+   <div class="grid3" id="edAction" ${p.action?'':'hidden'}>
+    <div class="field"><label for="edAT">Action</label><input id="edAT" data-pbind="actionText" value="${esc(p.actionText)}"></div>
+    <div class="field"><label for="edAB">By</label><input id="edAB" data-pbind="actionBy" value="${esc(p.actionBy)}"></div>
+    <div class="field"><label for="edAD">Due</label><input id="edAD" type="date" data-pbind="actionDue" value="${esc(p.actionDue)}"></div></div></div>
+  <div class="posbox"><div class="row"><span class="lbl">Position</span><span class="grow"></span><span class="coords">${p.lat!=null?fmtLL(p.lat,p.lon):'none'}</span></div>
+   <div class="row">
+    <button class="btn sm steel" data-act="ed-gps">${ic('gps')} Use my location now</button>
+    ${S.visit.drawings.length?`<button class="btn sm" data-act="ed-place">${ic('pin')} ${p.pin?'Move pin':'Place on drawing'}</button>`:''}
+    ${p.pin&&p.pin.manual&&p.lat!=null&&S.visit.drawings.some(d=>calOf(d)&&!calOf(d).error)?`<button class="btn sm" data-act="ed-repin">Pin from GPS</button>`:''}
+    ${p.pin?`<button class="btn sm ghost" data-act="ed-unpin">Remove pin</button>`:''}
+    ${p.lat!=null?`<button class="btn sm ghost" data-act="ed-clrgps">Clear GPS</button>`:''}
+   </div></div>
+  <label class="toggle"><input type="checkbox" id="edInc" data-pbind="include" ${p.include?'checked':''}> Include in report</label>
+  <div class="row"><button class="btn danger ghost" data-act="ed-del">${ic('trash')} Delete</button><span class="grow"></span>
+   <button class="btn" data-act="sheet-close">Done</button><button class="btn primary" data-act="ed-another">${ic('cam')} Next photo</button></div>
+ </div>`}
+function openPhoto(id){const p=S.photos.find(x=>x.id===id);if(!p)return;
+ openSheet(editorHTML(p),{full:true,onClose:()=>{if(S.tab==='photos')renderGrid();if(S.tab==='drawing')refreshDrawingBits();renderHeader()}});
+ S.edit=p;blobURL(p.blobId).then(u=>{const im=$('#edImg');if(u&&im&&S.edit===p)im.src=u})}
+function reopenEditor(){if(S.edit){const id=S.edit.id;const keep=sheetOnClose;$('#sheet').innerHTML=editorHTML(S.edit);sheetOnClose=keep;blobURL(S.edit.blobId).then(u=>{const im=$('#edImg');if(u&&im&&S.edit&&S.edit.id===id)im.src=u})}}
+async function deletePhoto(p){S.photos=S.photos.filter(x=>x!==p);await dbDel('photos',p.id);await dbDel('blobs',p.blobId);const u=S.urls.get(p.blobId);if(u){URL.revokeObjectURL(u);S.urls.delete(p.blobId)}renderHeader()}
+
+/* ================= drawing calibration ================= */
+const CAL=new Map();
+function proj(lat,lon,ref){return{E:(lon-ref.lon)*111320*Math.cos(ref.lat*Math.PI/180),N:(lat-ref.lat)*110574}}
+function solveCal(ctrl){if(!ctrl||ctrl.length<2)return null;
+ const ref={lat:ctrl.reduce((s,c)=>s+c.lat,0)/ctrl.length,lon:ctrl.reduce((s,c)=>s+c.lon,0)/ctrl.length};
+ const g=ctrl.map(c=>{const q=proj(c.lat,c.lon,ref);return{x:q.E,y:-q.N}});
+ const n=g.length,gm={x:g.reduce((s,a)=>s+a.x,0)/n,y:g.reduce((s,a)=>s+a.y,0)/n},qm={x:ctrl.reduce((s,a)=>s+a.x,0)/n,y:ctrl.reduce((s,a)=>s+a.y,0)/n};
+ let sa=0,sb=0,ss=0;for(let i=0;i<n;i++){const gx=g[i].x-gm.x,gy=g[i].y-gm.y,qx=ctrl[i].x-qm.x,qy=ctrl[i].y-qm.y;sa+=gx*qx+gy*qy;sb+=gx*qy-gy*qx;ss+=gx*gx+gy*gy}
+ if(ss<4)return{error:'Control points are too close together on the ground. Pick points at least 50 m apart.'};
+ const a=sa/ss,b=sb/ss,ppm=Math.hypot(a,b);if(!(ppm>0))return{error:'Calibration failed. Check the control point coordinates.'};
+ const toPx=(lat,lon)=>{const q=proj(lat,lon,ref);const gx=q.E-gm.x,gy=-q.N-gm.y;return{x:a*gx-b*gy+qm.x,y:b*gx+a*gy+qm.y}};
+ const res=ctrl.map(c=>{const q=toPx(c.lat,c.lon);return Math.hypot(q.x-c.x,q.y-c.y)/ppm});
+ const rms=Math.sqrt(res.reduce((s,r)=>s+r*r,0)/n);
+ const spread=Math.sqrt(ss/n);
+ return{n,toPx,ppm,res,rms,spread}}
+function calOf(d){if(!d)return null;const key=JSON.stringify(d.ctrl||[]);const c=CAL.get(d.id);if(c&&c.key===key)return c.val;const val=solveCal(d.ctrl);CAL.set(d.id,{key,val});return val}
+function autopin(p){if(p.noPin)return false;if(p.pin&&p.pin.manual&&S.visit.drawings.some(d=>d.id===p.pin.d))return false;const before=JSON.stringify(p.pin);p.pin=null;
+ if(p.lat!=null){const ds=[...S.visit.drawings].sort((a,b)=>(b.id===S.visit.activeDrawing)-(a.id===S.visit.activeDrawing));
+  for(const d of ds){const c=calOf(d);if(!c||c.error)continue;const q=c.toPx(p.lat,p.lon);if(q.x>=0&&q.y>=0&&q.x<=d.w&&q.y<=d.h){p.pin={d:d.id,x:q.x,y:q.y,manual:false};break}}}
+ return before!==JSON.stringify(p.pin)}
+function autopinAll(){for(const p of S.photos)if(autopin(p))savePhoto(p)}
+function calText(c){if(!c)return 'Not calibrated yet. Photos can still be pinned by hand.';if(c.error)return c.error;
+ if(c.n===2)return 'Calibrated from 2 points. Add a third point to check the accuracy.';
+ const cls=c.rms<=5?'res-good':c.rms<=15?'res-fair':'res-bad';return `Calibrated from ${c.n} points · fit error <b class="${cls}">±${c.rms.toFixed(1)} m</b>`}
+
+/* ================= drawing viewer ================= */
+const V={s:1,tx:0,ty:0,mode:'view',placeId:null,p:new Map(),start:null,pinch:null};
+const activeDrawing=()=>{const v=S.visit;return v.drawings.find(d=>d.id===v.activeDrawing)||v.drawings[0]||null};
+function renderDrawingTab(){const v=S.visit,el=$('#tab-drawing'),d=activeDrawing();
+ if(d&&v.activeDrawing!==d.id)v.activeDrawing=d.id;
+ el.innerHTML=`<div class="dwg-bar">
+  ${v.drawings.length?`<select id="dwgSel" aria-label="Drawing">${v.drawings.map(x=>`<option value="${x.id}" ${d&&x.id===d.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select>`:''}
+  <button class="btn" data-act="dwg-add">${ic('plus')} Add drawing</button>
+  ${d?`<button class="btn icon" data-act="dwg-edit" aria-label="Rename or delete drawing">${ic('edit')}</button>`:''}</div>
+ ${d?`<div class="row"><div class="seg" role="group" aria-label="Mode"><button data-act="mode" data-mode="view" aria-pressed="${V.mode!=='cal'}">${ic('pin')} Photo pins</button><button data-act="mode" data-mode="cal" aria-pressed="${V.mode==='cal'}">${ic('target')} Calibrate</button></div></div>
+  <div id="dwgStatus"></div>
+  <div class="dwg-view" id="dwgView"><div class="dwg-stage" id="dwgStage"><img id="dwgImg" alt="${esc(d.name)}" width="${d.w}" height="${d.h}"><div id="dwgMarks"></div></div>
+   <div class="dwg-zoom"><button data-act="zoom" data-k="1.5" aria-label="Zoom in">+</button><button data-act="zoom" data-k="0.667" aria-label="Zoom out">−</button><button class="txt" data-act="fit">Fit</button><button class="txt" data-act="locate" aria-label="Centre on my location">Me</button></div></div>
+  <div id="dwgBelow"></div>`
+ :`<div class="empty"><strong>No site drawing yet</strong>Add a PDF or image of the site plan. The first time you load a PDF the phone needs a data connection to fetch the PDF reader; after import the drawing is stored on the phone and works offline.<div style="margin-top:14px"><button class="btn primary" data-act="dwg-add">${ic('plus')} Add drawing</button></div></div>`}`;
+ const sel=$('#dwgSel');if(sel)sel.addEventListener('change',()=>{v.activeDrawing=sel.value;touch();renderDrawingTab()});
+ if(d)initViewer(d)}
+function initViewer(d){const view=$('#dwgView'),stage=$('#dwgStage'),img=$('#dwgImg');
+ stage.style.width=d.w+'px';stage.style.height=d.h+'px';
+ blobURL(d.blobId).then(u=>{if(u)img.src=u});
+ attachViewer(view);
+ const st=S.view[d.id];if(st){V.s=st.s;V.tx=st.tx;V.ty=st.ty;applyView()}else fit();
+ refreshDrawingBits()}
+function refreshDrawingBits(){if(!$('#dwgView'))return;renderMarks();renderStatus();renderBelow()}
+function applyView(){const st=$('#dwgStage');if(!st)return;st.style.transform=`translate(${V.tx}px,${V.ty}px) scale(${V.s})`;st.style.setProperty('--inv',String(1/V.s));const d=activeDrawing();if(d)S.view[d.id]={s:V.s,tx:V.tx,ty:V.ty}}
+function fitScale(){const v=$('#dwgView'),d=activeDrawing();if(!v||!d)return 1;return Math.min(v.clientWidth/d.w,v.clientHeight/d.h)}
+function fit(){const v=$('#dwgView'),d=activeDrawing();if(!v||!d)return;const s=fitScale()*.97;V.s=s;V.tx=(v.clientWidth-d.w*s)/2;V.ty=(v.clientHeight-d.h*s)/2;applyView()}
+const clampS=s=>{const f=fitScale();return Math.min(Math.max(s,f*.5),Math.max(f*16,3))};
+function zoomAt(px,py,k){const ns=clampS(V.s*k);const cx=(px-V.tx)/V.s,cy=(py-V.ty)/V.s;V.s=ns;V.tx=px-cx*ns;V.ty=py-cy*ns;applyView()}
+function centreOn(x,y,s){const v=$('#dwgView');if(!v)return;if(s)V.s=clampS(s);V.tx=v.clientWidth/2-x*V.s;V.ty=v.clientHeight/2-y*V.s;applyView()}
+function attachViewer(view){
+ view.addEventListener('pointerdown',e=>{if(e.target.closest('.dwg-zoom'))return;try{view.setPointerCapture(e.pointerId)}catch(_){}
+  V.p.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(V.p.size===1){V.start={x:e.clientX,y:e.clientY,tx:V.tx,ty:V.ty,moved:false};V.pinch=null}
+  else if(V.p.size===2){const [a,b]=[...V.p.values()];const r=view.getBoundingClientRect();V.pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,s:V.s,mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top,tx:V.tx,ty:V.ty};if(V.start)V.start.moved=true}});
+ view.addEventListener('pointermove',e=>{if(!V.p.has(e.pointerId))return;V.p.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(V.pinch&&V.p.size>=2){const [a,b]=[...V.p.values()];const r=view.getBoundingClientRect();const dd=Math.hypot(a.x-b.x,a.y-b.y)||1;const ns=clampS(V.pinch.s*dd/V.pinch.d);
+   const mx=(a.x+b.x)/2-r.left,my=(a.y+b.y)/2-r.top;const cx=(V.pinch.mx-V.pinch.tx)/V.pinch.s,cy=(V.pinch.my-V.pinch.ty)/V.pinch.s;V.s=ns;V.tx=mx-cx*ns;V.ty=my-cy*ns;applyView()}
+  else if(V.start&&V.p.size===1){const dx=e.clientX-V.start.x,dy=e.clientY-V.start.y;if(!V.start.moved&&Math.hypot(dx,dy)>8)V.start.moved=true;if(V.start.moved){V.tx=V.start.tx+dx;V.ty=V.start.ty+dy;applyView()}}});
+ const end=e=>{if(!V.p.has(e.pointerId))return;const single=V.p.size===1;V.p.delete(e.pointerId);
+  if(single&&V.start&&!V.start.moved&&e.type==='pointerup')onTap(e.clientX,e.clientY);
+  if(V.p.size===1){const [q]=[...V.p.values()];V.start={x:q.x,y:q.y,tx:V.tx,ty:V.ty,moved:true};V.pinch=null}
+  if(V.p.size===0){V.start=null;V.pinch=null}};
+ view.addEventListener('pointerup',end);view.addEventListener('pointercancel',end);
+ view.addEventListener('wheel',e=>{e.preventDefault();const r=view.getBoundingClientRect();zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-e.deltaY*.0015))},{passive:false})}
+function onTap(cx,cy){const view=$('#dwgView'),d=activeDrawing();if(!view||!d)return;const r=view.getBoundingClientRect();
+ const x=(cx-r.left-V.tx)/V.s,y=(cy-r.top-V.ty)/V.s;
+ if(V.mode==='place'){if(x<0||y<0||x>d.w||y>d.h)return;const p=S.photos.find(q=>q.id===V.placeId);if(!p){V.mode='view';refreshDrawingBits();return}
+  p.pin={d:d.id,x,y,manual:true};p.noPin=false;savePhoto(p);V.mode='view';V.placeId=null;S.sel=p.id;toast(`Photo ${p.n} pinned`);refreshDrawingBits();renderModeSeg();return}
+ if(V.mode==='cal'){if(x<0||y<0||x>d.w||y>d.h)return;openCP(x,y);return}
+ let best=null,bd=26;for(const p of S.photos){if(!p.pin||p.pin.d!==d.id)continue;const sx=r.left+V.tx+p.pin.x*V.s,sy=r.top+V.ty+p.pin.y*V.s;const dd=Math.hypot(sx-cx,sy-cy);if(dd<bd){bd=dd;best=p}}
+ if(best){S.sel=best.id;renderMarks();openPinSheet(best)}}
+function renderModeSeg(){$$('.seg [data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode==='cal'?V.mode==='cal':V.mode!=='cal')))}
+function renderMarks(){const m=$('#dwgMarks'),d=activeDrawing();if(!m||!d)return;const c=calOf(d);let h='';
+ if(c&&!c.error&&GPS.fix&&fixAge()<60000){const q=c.toPx(GPS.fix.lat,GPS.fix.lon);const rad=Math.max(4,GPS.fix.acc*c.ppm);h+=`<div class="me-acc" style="left:${q.x}px;top:${q.y}px;width:${2*rad}px;height:${2*rad}px"></div><div class="mk me" style="left:${q.x}px;top:${q.y}px"></div>`}
+ if(V.mode==='cal'){(d.ctrl||[]).forEach((cp,i)=>{h+=`<div class="mk cp" style="left:${cp.x}px;top:${cp.y}px"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="9" fill="none" stroke="#fff" stroke-width="4"/><circle cx="15" cy="15" r="9" fill="none" stroke="#24596b" stroke-width="2"/><path d="M15 1v9M15 20v9M1 15h9M20 15h9" stroke="#fff" stroke-width="4"/><path d="M15 1v9M15 20v9M1 15h9M20 15h9" stroke="#24596b" stroke-width="2"/></svg><span>${i+1}</span></div>`})}
+ else{for(const p of sortedPhotos()){if(p.pin&&p.pin.d===d.id)h+=`<div class="mk ph${p.pin.manual?' man':''}${S.sel===p.id?' sel':''}" style="left:${p.pin.x}px;top:${p.pin.y}px">${p.n}</div>`}}
+ m.innerHTML=h}
+function renderStatus(){const el=$('#dwgStatus'),d=activeDrawing();if(!el||!d)return;const c=calOf(d);
+ if(V.mode==='place'){const p=S.photos.find(x=>x.id===V.placeId);el.innerHTML=`<div class="banner accent"><span>Tap the drawing where <b>photo ${p?p.n:''}</b> was taken.</span><button class="btn sm" data-act="place-cancel">Cancel</button></div>`}
+ else if(V.mode==='cal')el.innerHTML=`<div class="banner steel"><span>Tap a feature on the drawing you can stand on (fence corner, culvert headwall, survey peg, road intersection), then record its GPS position. Use points spread across the site. ${calText(c)}</span></div>`;
+ else el.innerHTML=`<p class="status-line">${calText(c)}${c&&!c.error?' New photos with GPS pin themselves.':''}</p>`}
+function renderBelow(){const el=$('#dwgBelow'),d=activeDrawing();if(!el||!d)return;
+ if(V.mode==='cal'){const c=calOf(d);const cps=d.ctrl||[];
+  el.innerHTML=`<div class="card"><h2>Control points</h2>${cps.length?cps.map((cp,i)=>{const r=c&&!c.error&&c.n>2?c.res[i]:null;const cls=r==null?'':r<=5?'res-good':r<=15?'res-fair':'res-bad';
+   return `<div class="cp-row"><span class="cp-n">${i+1}</span><div class="cp-main"><div class="num">${fmtLL(cp.lat,cp.lon)}</div><div class="hint">${cp.src?esc(cp.src):''}${cp.acc?` · ±${Math.round(cp.acc)} m`:''}${r!=null?` · off by <b class="${cls}">${r.toFixed(1)} m</b>`:''}</div></div><button class="btn icon ghost" data-act="cp-del" data-i="${i}" aria-label="Delete control point ${i+1}">${ic('trash')}</button></div>`}).join(''):'<p class="hint">No control points yet. Tap the drawing to add the first one.</p>'}
+   <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" data-act="mode" data-mode="view">Done calibrating</button></div></div>`;return}
+ const un=sortedPhotos().filter(p=>!p.pin);const on=S.photos.filter(p=>p.pin&&p.pin.d===d.id).length;
+ el.innerHTML=`<div class="card"><div class="row"><h2 style="margin:0">Not on a drawing (${un.length})</h2><span class="grow"></span><span class="hint">${on} pinned here</span></div>
+  ${un.length?`<p class="hint" style="margin:6px 0 10px">Tap a photo number, then tap where it was taken.</p><div class="chips">${un.map(p=>`<button class="chip" data-act="place" data-id="${p.id}">${p.n}${p.caption?' · '+esc(p.caption.slice(0,24)):''}</button>`).join('')}</div>`:'<p class="hint" style="margin-top:6px">Every photo is on a drawing.</p>'}</div>`}
+function openPinSheet(p){openSheet(`${sheetHead(`Photo ${p.n}`)}<div class="sh-body"><img class="pin-thumb" src="${p.thumb}" alt="">
+ <div><b>${p.caption?esc(p.caption):'<span class="hint">No caption yet</span>'}</b><div class="hint">${esc([p.sp,p.loc,p.cat].filter(Boolean).join(' · '))}</div><div class="hint">${pinLabel(p)}</div></div>
+ <div class="row"><button class="btn" data-act="place" data-id="${p.id}">${ic('pin')} Move pin</button><span class="grow"></span><button class="btn primary" data-act="photo-open" data-id="${p.id}">Open photo</button></div></div>`,{onClose:()=>{S.sel=null;renderMarks()}})}
+function startPlace(id){const p=S.photos.find(x=>x.id===id);if(!p)return;if(!S.visit.drawings.length){toast('Add a drawing first');return}
+ if(p.pin&&S.visit.drawings.some(d=>d.id===p.pin.d))S.visit.activeDrawing=p.pin.d;
+ V.mode='place';V.placeId=id;if(sheetOpen)closeSheet();showTab('drawing');if(p.pin)setTimeout(()=>centreOn(p.pin.x,p.pin.y),30)}
+
+/* control points */
+let CP=null;
+function openCP(x,y){const d=activeDrawing();CP={x,y};const withGps=sortedPhotos().filter(p=>p.lat!=null);
+ openSheet(`${sheetHead(`Control point ${(d.ctrl||[]).length+1}`)}<div class="sh-body">
+  <p class="hint">Point marked on the drawing. Now give its position on the ground.</p>
+  <button class="btn steel big" data-act="cp-avg">${ic('gps')} I'm standing on it: average GPS for 10 s</button>
+  <div id="cpAvg" class="hint" aria-live="polite"></div>
+  <div class="grid2"><div class="field"><label for="cpLat">Latitude</label><input id="cpLat" inputmode="decimal" placeholder="-24.395810" autocomplete="off"></div>
+   <div class="field"><label for="cpLon">Longitude</label><input id="cpLon" inputmode="decimal" placeholder="150.514220" autocomplete="off"></div></div>
+  <p class="hint">Or type decimal degrees from survey control or a map app. Pasting "lat, lon" into Latitude fills both.</p>
+  ${withGps.length?`<div class="field"><label for="cpPhoto">Or use a photo taken on this point</label><select id="cpPhoto"><option value="">Choose a photo…</option>${withGps.map(p=>`<option value="${p.id}">Photo ${p.n}${p.caption?' – '+esc(p.caption.slice(0,40)):''} (±${p.acc?Math.round(p.acc):'?'} m)</option>`).join('')}</select></div>`:''}
+  <div class="row"><span class="grow"></span><button class="btn" data-act="sheet-close">Cancel</button><button class="btn primary" data-act="cp-save">Save point</button></div></div>`);
+ CP.src='entered';
+ $('#cpLat').addEventListener('input',e=>{const m=e.target.value.split(/[,\s]+/).filter(Boolean);if(m.length===2&&!isNaN(+m[0])&&!isNaN(+m[1])){e.target.value=m[0];$('#cpLon').value=m[1]}CP.src='entered';CP.acc=null});
+ $('#cpLon').addEventListener('input',()=>{CP.src='entered';CP.acc=null});
+ const ps=$('#cpPhoto');if(ps)ps.addEventListener('change',()=>{const p=S.photos.find(x=>x.id===ps.value);if(p){$('#cpLat').value=p.lat.toFixed(7);$('#cpLon').value=p.lon.toFixed(7);CP.src=`from photo ${p.n}`;CP.acc=p.acc}})}
+
+/* ================= drawings import ================= */
+const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',PDFWK='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Could not download the PDF reader. Connect to the internet once, or add the drawing as an image instead.'));document.head.appendChild(s)})}
+async function ensurePdfjs(){if(window.pdfjsLib)return window.pdfjsLib;await loadScript(PDFJS);try{await loadScript(PDFWK)}catch(e){}window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFWK;return window.pdfjsLib}
+function askPage(n){return new Promise(res=>{let done=false;const fin=v=>{if(!done){done=true;res(v)}};
+ openSheet(`${sheetHead('Which page?')}<div class="sh-body"><p>This PDF has ${n} pages. Pick the page with the site plan.</p>
+  <div class="field"><label for="pgNo">Page number</label><input id="pgNo" type="number" min="1" max="${n}" value="1" inputmode="numeric"></div>
+  <div class="row"><span class="grow"></span><button class="btn" data-act="sheet-close">Cancel</button><button class="btn primary" id="pgGo">Import page</button></div></div>`,{onClose:()=>fin(null)});
+ $('#pgGo').addEventListener('click',()=>{const v=Math.min(n,Math.max(1,parseInt($('#pgNo').value)||1));fin(v);closeSheet()})})}
+async function addDrawing(file){try{let canvas,name=file.name.replace(/\.[^.]+$/,'');
+ if(file.type==='application/pdf'||/\.pdf$/i.test(file.name)){toast('Opening PDF…',60000);const lib=await ensurePdfjs();
+  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;let pg=1;
+  if(pdf.numPages>1){$('#toast').hidden=true;pg=await askPage(pdf.numPages);if(!pg)return;name+=` (p${pg})`}
+  toast('Rendering drawing…',60000);const page=await pdf.getPage(pg);const v1=page.getViewport({scale:1});const sc=Math.min(3600/Math.max(v1.width,v1.height),8);
+  const vp=page.getViewport({scale:sc});canvas=document.createElement('canvas');canvas.width=Math.floor(vp.width);canvas.height=Math.floor(vp.height);
+  const g=canvas.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,canvas.width,canvas.height);await page.render({canvasContext:g,viewport:vp}).promise}
+ else{toast('Loading drawing…',60000);const bmp=await loadBitmap(file);canvas=canvasFrom(bmp,4000)}
+ let blob=await toBlob(canvas,'image/png');if(blob.size>7e6)blob=await toBlob(canvas,'image/jpeg',.9);
+ const d={id:uid(),name,blobId:uid(),w:canvas.width,h:canvas.height,ctrl:[],added:Date.now()};
+ await dbPut('blobs',{id:d.blobId,blob});S.visit.drawings.push(d);S.visit.activeDrawing=d.id;await saveVisit();
+ V.mode='view';showTab('drawing');toast('Drawing added. Switch to Calibrate to auto-pin GPS photos.',4500)
+ }catch(e){toast(e.message||String(e),6000)}}
+function openDrawingEdit(){const d=activeDrawing();if(!d)return;
+ openSheet(`${sheetHead('Drawing')}<div class="sh-body"><div class="field"><label for="dwgName">Name</label><input id="dwgName" value="${esc(d.name)}"></div>
+  <p class="hint">${d.w} × ${d.h} px · ${(d.ctrl||[]).length} control points</p>
+  <div class="row"><button class="btn danger ghost" data-act="dwg-del">${ic('trash')} Delete drawing</button><span class="grow"></span><button class="btn primary" data-act="sheet-close">Done</button></div></div>`,{onClose:()=>{if(S.tab==='drawing')renderDrawingTab()}});
+ $('#dwgName').addEventListener('input',e=>{d.name=e.target.value;touch()})}
+
+/* ================= visit tab ================= */
+function fld(label,bind,val,o={}){const id=o.id||('f_'+bind.replace(/\W/g,'_'));return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${o.type||'text'}" data-bind="${bind}" value="${esc(val)}" placeholder="${esc(o.ph||'')}"${o.after?` data-after="${o.after}"`:''} autocomplete="off"></div>`}
+function area(label,bind,val,rows,o={}){const id=o.id||('f_'+bind.replace(/\W/g,'_'));return `<div class="field"><label for="${id}">${label}</label><textarea id="${id}" rows="${rows}" data-bind="${bind}" placeholder="${esc(o.ph||'')}"${o.after?` data-after="${o.after}"`:''}>${esc(val)}</textarea></div>`}
+function listEditor(key,ph){const arr=S.visit.lists[key];return `<div class="list-ed" data-list="${key}">${arr.map((x,i)=>`<div class="le-row"><input data-li="${i}" value="${esc(x)}" aria-label="${KEYLABEL[key]} ${i+1}"><button class="btn icon ghost" data-act="list-del" data-list="${key}" data-i="${i}" aria-label="Remove">${ic('x')}</button></div>`).join('')}
+ <div class="le-row"><input class="le-new" data-list-new="${key}" placeholder="${esc(ph)}" aria-label="New ${KEYLABEL[key]}"><button class="btn" data-act="list-add" data-list="${key}">Add</button></div></div>`}
+function renderVisitTab(){const v=S.visit,i=v.info;
+ $('#tab-visit').innerHTML=`<div class="stack">
+ <div class="card"><h2>Visit details</h2><div class="grid2">
+  ${fld('Project','info.project',i.project,{ph:'e.g. Northern access road upgrade',after:'head'})}
+  ${fld('Client','info.client',i.client)}
+  ${fld('Contract / job no.','info.jobNo',i.jobNo)}
+  ${fld('Site','info.site',i.site,{ph:'Site name or location',after:'head'})}
+  ${fld('Date of visit','info.date',i.date,{type:'date',after:'head'})}
+  ${fld('Time on site','info.timeOn',i.timeOn,{type:'time'})}
+  ${fld('Time off site','info.timeOff',i.timeOff,{type:'time'})}
+  ${fld('Prepared by','info.preparedBy',i.preparedBy)}
+  ${fld('Company','info.company',i.company)}</div>
+  <div style="margin-top:10px">${area('Purpose of visit','info.purpose',i.purpose,2,{ph:'e.g. Progress inspection and monthly site meeting'})}
+  ${area('Weather & site conditions','info.weather',i.weather,2,{ph:'e.g. Fine, 34 °C, haul roads dry and dusty'})}</div></div>
+ <div class="card"><h2>People on site</h2><div class="stack" id="attList">${v.attendees.map((a,k)=>`<div class="att-row">
+   <input data-bind="attendees.${k}.name" value="${esc(a.name)}" placeholder="Name" aria-label="Name">
+   <input data-bind="attendees.${k}.company" value="${esc(a.company)}" placeholder="Company" aria-label="Company">
+   <input data-bind="attendees.${k}.role" value="${esc(a.role)}" placeholder="Role" aria-label="Role">
+   <button class="btn icon ghost" data-act="att-del" data-i="${k}" aria-label="Remove person">${ic('x')}</button></div>`).join('')}</div>
+  <div class="row" style="margin-top:10px"><button class="btn" data-act="att-add">${ic('plus')} Add person</button></div></div>
+ <div class="card"><h2>Separable portions</h2><p class="hint" style="margin:-6px 0 10px">Photos and actions are tagged against these.</p>${listEditor('sp','e.g. SP1 – Bulk earthworks')}</div>
+ <div class="card"><h2>Locations & areas</h2><p class="hint" style="margin:-6px 0 10px">Chainages, structures, laydowns, dams, crossings.</p>${listEditor('loc','e.g. Ch 1+200 culvert')}</div>
+ <div class="card"><h2>Photo categories</h2>${listEditor('cat','New category')}</div>
+ <div class="card">${area('General notes & observations','info.notes',i.notes,8,{ph:'Anything not tied to a photo or meeting item'})}</div>
+ <div class="card"><h2>Report logo</h2><div class="row">${v.logo?`<img class="logo-prev" src="${v.logo}" alt="Report logo">`:'<span class="hint">No logo. The report header shows the client name only.</span>'}<span class="grow"></span>
+  <button class="btn" data-act="logo-pick">${ic('ul')} ${v.logo?'Replace':'Upload'} logo</button>${v.logo?`<button class="btn ghost danger" data-act="logo-clear">Remove</button>`:''}</div></div>
+ <div class="card"><h2>Backup</h2><p class="hint" style="margin-bottom:10px">Everything is stored in this browser on this phone. Export a backup file after the visit (and before clearing Chrome data) so you can reopen it on a laptop with this same app. ${v.lastBackup?`Last backup ${fmtDT(v.lastBackup)}.`:'<b>Not backed up yet.</b>'}</p>
+  <div class="row"><button class="btn steel" data-act="export">${ic('dl')} Export backup</button><button class="btn" data-act="import">${ic('ul')} Import backup</button><button class="btn" data-act="visits">All visits</button></div></div>
+ </div>`}
+
+/* ================= minutes ================= */
+function newMeeting(){const v=S.visit;return{id:uid(),title:v.meetings.length?'Meeting':'Site meeting',date:v.info.date,time:'',venue:v.info.site||'',chair:'',minutesBy:v.info.preparedBy||'',
+ attendees:v.attendees.filter(a=>a.name).map(a=>({name:a.name,company:a.company,role:a.role,status:'Present'})),items:[newItem()],notes:''}}
+const newItem=()=>({id:uid(),topic:'',discussion:'',action:'',by:'',due:'',status:'Open'});
+function renderMinutes(){const ms=S.visit.meetings;
+ $('#tab-minutes').innerHTML=`<div class="row" style="margin-bottom:12px"><h2 style="margin:0">Meetings & minutes</h2><span class="grow"></span><button class="btn primary" data-act="meet-add">${ic('plus')} New meeting</button></div>
+ <div class="stack">${ms.length?ms.map((m,mi)=>meetingHTML(m,mi)).join(''):`<div class="empty"><strong>No meetings recorded</strong>Add a meeting to take minutes: attendees, discussion items, actions with who and when. Actions flow into the report's action register.</div>`}</div>`;
+ $$('details.meet').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)S.openMeets.add(d.dataset.mid);else S.openMeets.delete(d.dataset.mid)}))}
+function meetingHTML(m,mi){const b=`meetings.${mi}`;const open=S.openMeets.has(m.id);
+ return `<details class="card meet" data-mid="${m.id}" ${open?'open':''}><summary><span class="m-no">M${mi+1}</span><span class="m-title">${esc(m.title)||'Untitled meeting'}</span><span class="m-sub">${fmtDate(m.date)} · ${m.items.length} item${m.items.length===1?'':'s'}</span></summary>
+ <div class="meet-body">
+  <div class="grid2">${fld('Meeting',b+'.title',m.title,{after:'msum',id:`m${mi}t`})}${fld('Date',b+'.date',m.date,{type:'date',after:'msum',id:`m${mi}d`})}${fld('Time',b+'.time',m.time,{type:'time',id:`m${mi}tm`})}${fld('Venue',b+'.venue',m.venue,{id:`m${mi}v`})}${fld('Chair',b+'.chair',m.chair,{id:`m${mi}c`})}${fld('Minutes by',b+'.minutesBy',m.minutesBy,{id:`m${mi}mb`})}</div>
+  <div><h3>Attendees</h3><div class="stack">${m.attendees.map((a,ai)=>`<div class="att-row m">
+   <input data-bind="${b}.attendees.${ai}.name" value="${esc(a.name)}" placeholder="Name" aria-label="Name">
+   <input data-bind="${b}.attendees.${ai}.company" value="${esc(a.company)}" placeholder="Company" aria-label="Company">
+   <input data-bind="${b}.attendees.${ai}.role" value="${esc(a.role)}" placeholder="Role" aria-label="Role">
+   <select data-bind="${b}.attendees.${ai}.status" aria-label="Attendance">${['Present','Apology','Absent'].map(s=>`<option ${a.status===s?'selected':''}>${s}</option>`).join('')}</select>
+   <button class="btn icon ghost" data-act="matt-del" data-m="${mi}" data-i="${ai}" aria-label="Remove attendee">${ic('x')}</button></div>`).join('')}</div>
+   <div class="row" style="margin-top:8px"><button class="btn sm" data-act="matt-add" data-m="${mi}">${ic('plus')} Attendee</button>${S.visit.attendees.some(a=>a.name)?`<button class="btn sm ghost" data-act="matt-copy" data-m="${mi}">Copy people on site</button>`:''}</div></div>
+  <div><h3>Items</h3><div class="stack">${m.items.map((it,ii)=>{const ib=`${b}.items.${ii}`;return `<div class="item">
+   <div class="item-head"><span class="i-no">${mi+1}.${ii+1}</span><input data-bind="${ib}.topic" value="${esc(it.topic)}" placeholder="Topic" aria-label="Topic">
+    <select data-bind="${ib}.status" aria-label="Status">${['Open','Closed','Info'].map(s=>`<option ${it.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+   <textarea rows="3" data-bind="${ib}.discussion" placeholder="Discussion / notes" aria-label="Discussion">${esc(it.discussion)}</textarea>
+   <div class="grid3"><input data-bind="${ib}.action" value="${esc(it.action)}" placeholder="Action (leave blank if none)" aria-label="Action"><input data-bind="${ib}.by" value="${esc(it.by)}" placeholder="By" aria-label="Action by"><input type="date" data-bind="${ib}.due" value="${esc(it.due)}" aria-label="Due date"></div>
+   <div class="row"><span class="grow"></span><button class="btn icon ghost" data-act="item-mv" data-m="${mi}" data-i="${ii}" data-d="-1" aria-label="Move up" ${ii===0?'disabled':''}>${ic('up')}</button><button class="btn icon ghost" data-act="item-mv" data-m="${mi}" data-i="${ii}" data-d="1" aria-label="Move down" ${ii===m.items.length-1?'disabled':''}>${ic('down')}</button><button class="btn icon ghost danger" data-act="item-del" data-m="${mi}" data-i="${ii}" aria-label="Delete item">${ic('trash')}</button></div></div>`}).join('')}</div>
+   <div class="row" style="margin-top:8px"><button class="btn" data-act="item-add" data-m="${mi}">${ic('plus')} Add item</button></div></div>
+  ${area('Other notes',b+'.notes',m.notes,3,{id:`m${mi}n`})}
+  <div class="row"><button class="btn danger ghost" data-act="meet-del" data-m="${mi}">${ic('trash')} Delete meeting</button></div>
+ </div></details>`}
+
+/* ================= report ================= */
+function renderReportTab(){const r=S.visit.report;const sl={details:'Visit details',summary:'Summary',attendees:'People on site',minutes:'Meeting minutes',actions:'Action register',notes:'General notes',drawings:'Site drawings',photos:'Photo register'};
+ $('#tab-report').innerHTML=`<div class="card rpt-controls"><h2>Report</h2>
+  <div class="grid2">${fld('Report title','report.title',r.title)}${fld('Report no.','report.no',r.no,{ph:'e.g. SVR-003'})}${fld('Revision','report.rev',r.rev)}</div>
+  <div style="margin-top:10px">${area('Summary / key findings','report.summary',r.summary,4,{ph:'Overall progress, main issues, decisions'})}</div>
+  <h3>Include</h3><div class="secs">${Object.keys(sl).map(k=>`<label class="toggle"><input type="checkbox" data-bind="report.sec.${k}" ${r.sec[k]?'checked':''}> ${sl[k]}</label>`).join('')}</div>
+  <h3>Photos</h3><div class="grid2">
+   <div class="field"><label for="rpPP">Photo size</label><select id="rpPP" data-bind="report.perPage">${[['1','Full page (1 per page)'],['2','Large (about 2 per page)'],['4','Medium (about 4 per page)'],['6','Small (about 6 per page)']].map(([k,t])=>`<option value="${k}" ${r.perPage===k?'selected':''}>${t}</option>`).join('')}</select></div>
+   <div class="field"><label for="rpOrd">Order</label><select id="rpOrd" data-bind="report.order">${[['n','Photo number'],['sp','Separable portion'],['loc','Location'],['time','Time taken']].map(([k,t])=>`<option value="${k}" ${r.order===k?'selected':''}>${t}</option>`).join('')}</select></div>
+   <div class="field"><label for="rpOnly">Which photos</label><select id="rpOnly" data-bind="report.only">${[['all','All marked for the report'],['action','Only those needing action']].map(([k,t])=>`<option value="${k}" ${r.only===k?'selected':''}>${t}</option>`).join('')}</select></div></div>
+  <label class="toggle"><input type="checkbox" data-bind="report.coords" ${r.coords?'checked':''}> Show GPS coordinates under photos</label>
+  <div class="row" style="margin-top:6px"><button class="btn primary" data-act="rpt-print">${ic('print')} Print / Save as PDF</button><button class="btn" data-act="rpt-refresh">Refresh preview</button></div>
+  <p class="hint" style="margin-top:8px">In Chrome's print screen choose <b>Save as PDF</b> and paper size <b>A4</b>. To change content, edit it in the other tabs; the preview below follows your edits.</p></div>
+ <div class="rpt-wrap" id="rptWrap"><div class="rpt-scale" id="rptScale"><div class="rpt" id="rptDoc"></div></div></div>`;
+ buildReport()}
+let rptT=null,rptGen=0;
+function scheduleReport(){clearTimeout(rptT);rptT=setTimeout(()=>{if(S.tab==='report')buildReport()},700)}
+function fitPreview(){const w=$('#rptWrap'),s=$('#rptScale');if(!w||!s)return;const avail=w.clientWidth-24;const px=210*96/25.4;s.style.zoom=String(Math.min(1,avail/px))}
+window.addEventListener('resize',()=>{fitPreview()});
+function cssStr(s){return String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/[\r\n]+/g,' ')}
+function setPageStyle(){const v=S.visit,i=v.info,r=v.report;const foot=[i.project||'Site visit',r.title,r.no&&('Report '+r.no),r.rev&&('Rev '+r.rev)].filter(Boolean).join(' · ');
+ $('#pageStyle').textContent=`@page{@bottom-left{content:"${cssStr(foot)}";font:8pt system-ui,sans-serif;color:#59625f}@bottom-right{content:"Page " counter(page) " of " counter(pages);font:8pt system-ui,sans-serif;color:#59625f}}`}
+function reportPhotos(){const r=S.visit.report;let ps=S.photos.filter(p=>p.include&&(r.only!=='action'||p.action));
+ const cmp={n:(a,b)=>a.n-b.n,time:(a,b)=>a.taken-b.taken||a.n-b.n,sp:(a,b)=>(a.sp||'~').localeCompare(b.sp||'~',undefined,{numeric:true})||a.n-b.n,loc:(a,b)=>(a.loc||'~').localeCompare(b.loc||'~',undefined,{numeric:true})||a.n-b.n}[r.order]||((a,b)=>a.n-b.n);
+ return ps.sort(cmp)}
+function collectActions(){const out=[];S.visit.meetings.forEach((m,mi)=>m.items.forEach((it,ii)=>{if(it.action&&it.action.trim())out.push({ref:`${mi+1}.${ii+1}`,src:`Minutes – ${m.title||'meeting'}`,action:it.action,by:it.by,due:it.due,status:it.status==='Info'?'Open':it.status})}));
+ sortedPhotos().forEach(p=>{if(p.action)out.push({ref:`P${p.n}`,src:`Photo ${p.n}${p.loc?' – '+p.loc:''}`,action:p.actionText||p.caption||'See photo',by:p.actionBy,due:p.actionDue,status:'Open'})});return out}
+async function drawingComposite(d){const url=await blobURL(d.blobId);if(!url)return null;const img=await loadImg(url);const k=Math.min(1,2600/Math.max(d.w,d.h));
+ const c=document.createElement('canvas');c.width=Math.round(d.w*k);c.height=Math.round(d.h*k);const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);
+ const r=Math.max(14,Math.round(Math.max(c.width,c.height)/75));const pins=S.photos.filter(p=>p.include&&p.pin&&p.pin.d===d.id).sort((a,b)=>a.n-b.n);
+ g.textAlign='center';g.textBaseline='middle';
+ for(const p of pins){const x=p.pin.x*k,y=p.pin.y*k;const label=String(p.n);g.font=`bold ${Math.round(r*1.05)}px system-ui,sans-serif`;const w=Math.max(r*2,g.measureText(label).width+r*.9);
+  g.beginPath();if(g.roundRect)g.roundRect(x-w/2,y-r,w,r*2,r);else g.arc(x,y,r,0,Math.PI*2);g.fillStyle=p.action?'#b42318':'#d9520c';g.fill();g.lineWidth=Math.max(2,r*.18);g.strokeStyle='#fff';g.stroke();
+  g.fillStyle='#fff';g.fillText(label,x,y+1)}
+ return{src:c.toDataURL('image/jpeg',.9),count:pins.length}}
+async function buildReport(){const doc=$('#rptDoc');if(!doc)return;const gen=++rptGen;const v=S.visit,i=v.info,r=v.report,sec=r.sec;let n=0;
+ const H=t=>`<h2><span class="r-num">${++n}</span><span>${esc(t)}</span></h2>`;
+ const kv=rows=>`<table class="r-t r-kv">${rows.filter(x=>x[1]).map(([k,val])=>`<tr><th>${k}</th><td class="r-pre">${esc(val)}</td></tr>`).join('')}</table>`;
+ let main=`<div class="r-head">${v.logo?`<div class="r-logo"><img src="${v.logo}" alt=""></div>`:''}<div class="r-titles"><div class="r-kicker">${esc(i.client)}</div><h1>${esc(r.title||'Site Visit Report')}</h1><div class="r-sub">${esc([i.project,i.site].filter(Boolean).join(' — '))}</div></div>
+  <table class="r-docbox"><tr><th>Report no.</th><td>${esc(r.no)||'—'}</td></tr><tr><th>Revision</th><td>${esc(r.rev)||'—'}</td></tr><tr><th>Visit date</th><td>${fmtDate(i.date)}</td></tr></table></div>`;
+ if(sec.details)main+=`<section>${H('Visit details')}${kv([['Project',i.project],['Client',i.client],['Contract / job no.',i.jobNo],['Site',i.site],['Date of visit',fmtDate(i.date)],['Time on site',[i.timeOn,i.timeOff].filter(Boolean).join(' – ')],['Prepared by',[i.preparedBy,i.company].filter(Boolean).join(', ')],['Purpose',i.purpose],['Weather & conditions',i.weather]])}</section>`;
+ if(sec.summary&&r.summary.trim())main+=`<section>${H('Summary')}<div class="r-pre">${esc(r.summary)}</div></section>`;
+ const att=v.attendees.filter(a=>a.name);
+ if(sec.attendees&&att.length)main+=`<section>${H('People on site')}<table class="r-t"><tr><th>Name</th><th>Company</th><th>Role</th></tr>${att.map(a=>`<tr><td>${esc(a.name)}</td><td>${esc(a.company)}</td><td>${esc(a.role)}</td></tr>`).join('')}</table></section>`;
+ if(sec.minutes&&v.meetings.length){main+=`<section>${H('Meeting minutes')}`;v.meetings.forEach((m,mi)=>{const ma=m.attendees.filter(a=>a.name);
+  main+=`<h3>M${mi+1}. ${esc(m.title||'Meeting')}</h3><p class="r-mline">${esc([fmtDate(m.date),m.time,m.venue].filter(Boolean).join(' · '))}${m.chair?` · Chair: ${esc(m.chair)}`:''}${m.minutesBy?` · Minutes: ${esc(m.minutesBy)}`:''}</p>`;
+  if(ma.length)main+=`<table class="r-t"><tr><th>Attendee</th><th>Company</th><th>Role</th><th>Attendance</th></tr>${ma.map(a=>`<tr><td>${esc(a.name)}</td><td>${esc(a.company)}</td><td>${esc(a.role)}</td><td>${esc(a.status)}</td></tr>`).join('')}</table>`;
+  const its=m.items.filter(it=>it.topic||it.discussion||it.action);
+  if(its.length)main+=`<table class="r-t"><tr><th style="width:11mm">No.</th><th>Item / discussion</th><th style="width:42mm">Action</th><th style="width:24mm">By</th><th style="width:20mm">Due</th></tr>${m.items.map((it,ii)=>(it.topic||it.discussion||it.action)?`<tr><td>${mi+1}.${ii+1}</td><td>${it.topic?`<b>${esc(it.topic)}</b>${it.discussion?'<br>':''}`:''}<span class="r-pre">${esc(it.discussion)}</span></td><td class="r-pre">${esc(it.action)}${it.action&&it.status==='Closed'?' (closed)':''}${!it.action&&it.status==='Info'?'<span class="r-empty">For information</span>':''}</td><td>${esc(it.by)}</td><td>${it.due?fmtDate(it.due):''}</td></tr>`:'').join('')}</table>`;
+  else main+=`<p class="r-empty">No items recorded.</p>`;
+  if(m.notes.trim())main+=`<div class="r-pre" style="margin-top:1.5mm">${esc(m.notes)}</div>`});main+=`</section>`}
+ const acts=collectActions();
+ if(sec.actions&&acts.length)main+=`<section>${H('Action register')}<table class="r-t"><tr><th style="width:11mm">Ref</th><th>Action</th><th style="width:30mm">By</th><th style="width:20mm">Due</th><th style="width:16mm">Status</th></tr>${acts.map(a=>`<tr><td>${a.ref}</td><td class="r-pre">${esc(a.action)}<div style="color:#59625f;font-size:7.8pt">${esc(a.src)}</div></td><td>${esc(a.by)}</td><td>${a.due?fmtDate(a.due):''}</td><td>${esc(a.status)}</td></tr>`).join('')}</table></section>`;
+ if(sec.notes&&i.notes.trim())main+=`<section>${H('General notes & observations')}<div class="r-pre">${esc(i.notes)}</div></section>`;
+ const sheets=[`<div class="r-sheet">${main}</div>`];
+ if(sec.drawings&&v.drawings.length){let first=true;for(const d of v.drawings){let comp=null;try{comp=await drawingComposite(d)}catch(e){}if(gen!==rptGen)return;if(!comp)continue;const c=calOf(d);
+  sheets.push(`<div class="r-sheet">${first?H('Site drawings'):''}<h3>${esc(d.name)}</h3><div class="r-dwg"><img src="${comp.src}" alt="${esc(d.name)}"></div><p class="r-note">Numbers mark photo locations (${comp.count} shown; red = action required). ${c&&!c.error?`Positions from phone GPS, calibrated on ${c.n} control points${c.n>2?` (fit error ±${c.rms.toFixed(1)} m)`:''}, or placed by hand.`:'Positions placed by hand.'}</p></div>`);first=false}}
+ const ph=reportPhotos();
+ if(sec.photos&&ph.length){const cards=[];for(const p of ph){const u=await blobURL(p.blobId);if(gen!==rptGen)return;
+  const tags=[['SP',p.sp],['Location',p.loc],['Category',p.cat]].filter(x=>x[1]).map(([k,val])=>`<b>${k}</b> ${esc(val)}`).join(' &nbsp; ');
+  cards.push(`<figure class="r-ph"><div class="im"><img src="${u||p.thumb}" alt="Photo ${p.n}"></div><figcaption class="meta">
+   <div class="r-phhead"><span class="ttl">Photo ${p.n}</span><span class="when">${fmtDT(p.taken)}</span></div>
+   ${p.caption?`<div class="cap">${esc(p.caption)}</div>`:''}${tags?`<div class="tags">${tags}</div>`:''}
+   ${p.comment?`<div class="r-pre">${esc(p.comment)}</div>`:''}
+   ${p.action?`<div><span class="r-badge">Action</span> ${esc(p.actionText)}${p.actionBy?` — ${esc(p.actionBy)}`:''}${p.actionDue?`, due ${fmtDate(p.actionDue)}`:''}</div>`:''}
+   ${r.coords&&p.lat!=null?`<div class="r-coord">${fmtLL(p.lat,p.lon)}${p.acc?` ±${Math.round(p.acc)} m`:''}</div>`:''}</figcaption></figure>`)}
+  sheets.push(`<div class="r-sheet">${H('Photo register')}<div class="r-pgrid r-pp${r.perPage}">${cards.join('')}</div></div>`)}
+ if(gen!==rptGen)return;doc.innerHTML=sheets.join('');fitPreview();setPageStyle()}
+async function doPrint(){toast('Preparing report…',20000);await flushAll();await buildReport();const imgs=$$('#rptDoc img');
+ await Promise.all(imgs.map(im=>im.complete?null:new Promise(r=>{im.onload=im.onerror=r})));$('#toast').hidden=true;
+ const s=$('#rptScale');const z=s.style.zoom;s.style.zoom='1';window.print();s.style.zoom=z}
+window.addEventListener('beforeprint',()=>{const s=$('#rptScale');if(s)s.style.zoom='1'});
+window.addEventListener('afterprint',()=>fitPreview());
+
+/* ================= visits ================= */
+async function loadVisit(id){revokeAll();CAL.clear();S.view={};S.sel=null;S.filter={sp:'',loc:'',q:''};V.mode='view';V.placeId=null;
+ const v=await dbGet('visits',id);if(!v)return false;S.visit=fillDefaults(v,newVisit());S.photos=(await dbByVisit(id))||[];LS.set('current',id);renderHeader();showTab(S.tab);return true}
+async function openVisits(){await flushAll();const all=((await dbAll('visits'))||[]).sort((a,b)=>b.updated-a.updated);const counts={};for(const v of all)counts[v.id]=await dbCountVisit(v.id);
+ let est='';try{const e=await navigator.storage.estimate();est=`Using ${(e.usage/1048576).toFixed(0)} MB of storage on this device.`}catch(e){}
+ openSheet(`${sheetHead('Site visits')}<div class="sh-body"><div class="row"><button class="btn primary" data-act="visit-new">${ic('plus')} New visit</button><button class="btn" data-act="import">${ic('ul')} Import backup</button></div>
+  <div>${all.map(v=>`<div class="vrow${v.id===S.visit.id?' current':''}"><div class="vmain"><b>${esc(v.info.project||'Untitled visit')}</b><span>${fmtDate(v.info.date)} · ${esc(v.info.site||v.info.client)} · ${counts[v.id]||0} photos${v.lastBackup?'':' · not backed up'}</span></div>
+   ${v.id===S.visit.id?'<span class="hint">Open now</span>':`<button class="btn sm" data-act="visit-open" data-id="${v.id}">Open</button>`}
+   <button class="btn sm ghost" data-act="visit-dup" data-id="${v.id}">Copy setup</button>
+   <button class="btn sm ghost danger" data-act="visit-del" data-id="${v.id}" aria-label="Delete visit">${ic('trash')}</button></div>`).join('')}</div>
+  <p class="hint">"Copy setup" starts a new visit with the same project details, people, lists, logo and calibrated drawings, but no photos or minutes. ${est}</p></div>`)}
+async function copyBlob(id){const r=await dbGet('blobs',id);if(!r)return null;const nid=uid();await dbPut('blobs',{id:nid,blob:r.blob});return nid}
+async function dupVisit(id){const src=await dbGet('visits',id);if(!src)return;const v=fillDefaults(structuredClone(src),newVisit());
+ v.id=uid();v.created=v.updated=Date.now();v.info.date=isoDate(new Date());v.info.timeOn=v.info.timeOff='';v.info.notes='';v.info.weather='';v.meetings=[];v.lastBackup=null;v.report.summary='';v.report.no='';
+ for(const d of v.drawings){const old=d.id;d.id=uid();d.blobId=await copyBlob(d.blobId);if(v.activeDrawing===old)v.activeDrawing=d.id}v.drawings=v.drawings.filter(d=>d.blobId);
+ await dbPut('visits',v);closeSheet();S.tab='visit';await loadVisit(v.id);toast('New visit created from that setup')}
+async function deleteVisit(id){const v=await dbGet('visits',id);if(!v)return;
+ if(!confirm(`Delete "${v.info.project||'Untitled visit'}" (${fmtDate(v.info.date)}) and all its photos from this device? This can't be undone.`))return;
+ const ps=await dbByVisit(id);for(const p of ps){await dbDel('blobs',p.blobId);await dbDel('photos',p.id)}for(const d of v.drawings)await dbDel('blobs',d.blobId);await dbDel('visits',id);
+ if(S.visit.id===id){const rest=((await dbAll('visits'))||[]).sort((a,b)=>b.updated-a.updated);if(rest.length)await loadVisit(rest[0].id);else{const nv=newVisit();await dbPut('visits',nv);S.tab='visit';await loadVisit(nv.id)}}
+ openVisits()}
+async function exportVisit(){try{await flushAll();toast('Preparing backup…',60000);const v=S.visit;const photos=await dbByVisit(v.id);
+ const parts=['{"app":"site-visit-recorder","version":1,"exported":',JSON.stringify(new Date().toISOString()),',"visit":',JSON.stringify({...v,lastBackup:Date.now()}),',"photos":',JSON.stringify(photos),',"blobs":{'];
+ const ids=[...photos.map(p=>p.blobId),...v.drawings.map(d=>d.blobId)];let first=true;
+ for(const id of ids){const r=await dbGet('blobs',id);if(!r)continue;parts.push((first?'':',')+JSON.stringify(id)+':'+JSON.stringify(await blobToDataURL(r.blob)));first=false}
+ parts.push('}}');const safe=s=>(s||'').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'_').slice(0,40);
+ download(new Blob(parts,{type:'application/json'}),`SiteVisit_${safe(v.info.project)||'visit'}_${v.info.date||isoDate(new Date())}.json`);
+ v.lastBackup=Date.now();touch();toast('Backup saved to Downloads');if(S.tab==='visit')renderVisitTab()}catch(e){toast('Backup failed: '+(e.message||e),6000)}}
+async function importFile(file){try{toast('Importing…',60000);const data=JSON.parse(await file.text());if(data.app!=='site-visit-recorder'||!data.visit)throw new Error('That file is not a Site Visit Recorder backup');
+ let v=data.visit,photos=data.photos||[],blobs=data.blobs||{};const exists=await dbGet('visits',v.id);
+ const map=new Map();const nb=id=>{if(!map.has(id))map.set(id,uid());return map.get(id)};
+ if(exists){if(confirm('This visit is already on this device.\n\nOK = replace it with the backup\nCancel = import as a separate copy')){const ps=await dbByVisit(v.id);for(const p of ps){await dbDel('blobs',p.blobId);await dbDel('photos',p.id)}for(const d of exists.drawings||[])await dbDel('blobs',d.blobId)}
+  else{v.id=uid();photos.forEach(p=>{p.id=uid();p.visitId=v.id;p.blobId=nb(p.blobId)});v.drawings.forEach(d=>{d.blobId=nb(d.blobId)})}}
+ for(const [id,du] of Object.entries(blobs)){await dbPut('blobs',{id:map.has(id)?map.get(id):id,blob:dataURLtoBlob(du)})}
+ for(const p of photos){p.visitId=v.id;await dbPut('photos',p)}await dbPut('visits',v);closeSheet();await loadVisit(v.id);toast(`Imported ${photos.length} photos`)}catch(e){toast('Import failed: '+(e.message||e),6000)}}
+
+/* ================= header & tabs ================= */
+function renderHeader(){const i=S.visit.info;$('#visitTitle').textContent=(i.project||'Untitled visit')+(i.date?' · '+fmtDate(i.date):'');
+ const b=$('.tabbar [data-go="photos"] .tb-badge');if(b){b.textContent=S.photos.length;b.hidden=!S.photos.length}}
+function setupTabbar(){const t={visit:['clip','Visit'],photos:['cam','Photos'],drawing:['map','Drawing'],minutes:['list','Minutes'],report:['print','Report']};
+ $$('.tabbar [data-go]').forEach(b=>{const [i,l]=t[b.dataset.go];b.innerHTML=`${ic(i)}<span>${l}</span>${b.dataset.go==='photos'?'<span class="tb-badge" hidden></span>':''}`});$('#fab').innerHTML=ic('cam')}
+function showTab(t){S.tab=t;LS.set('tab',t);$$('.tab').forEach(s=>s.classList.toggle('active',s.dataset.tab===t));
+ $$('.tabbar [data-go]').forEach(b=>b.setAttribute('aria-current',b.dataset.go===t?'page':'false'));$('#fab').hidden=(t==='photos'||t==='report');
+ if(t!=='drawing'&&V.mode==='place'){V.mode='view';V.placeId=null}
+ ({visit:renderVisitTab,photos:renderPhotos,drawing:renderDrawingTab,minutes:renderMinutes,report:renderReportTab})[t]();window.scrollTo(0,0)}
+
+/* ================= events ================= */
+function setPath(o,path,val){const ks=path.split('.');let a=o;for(let i=0;i<ks.length-1;i++)a=a[ks[i]];a[ks[ks.length-1]]=val}
+document.addEventListener('input',e=>{const el=e.target;
+ if(el.dataset.bind){setPath(S.visit,el.dataset.bind,el.type==='checkbox'?el.checked:el.value);touch();
+  const af=el.dataset.after;if(af==='head')renderHeader();
+  if(af==='msum'){const d=el.closest('details');const mi=[...$$('details.meet')].indexOf(d);const m=S.visit.meetings[mi];if(d&&m){$('.m-title',d).textContent=m.title||'Untitled meeting';$('.m-sub',d).textContent=`${fmtDate(m.date)} · ${m.items.length} item${m.items.length===1?'':'s'}`}}
+  if(el.dataset.bind.startsWith('report.'))scheduleReport();return}
+ if(el.dataset.pbind&&S.edit){const k=el.dataset.pbind;S.edit[k]=el.type==='checkbox'?el.checked:el.value;if(k==='action'){$('#edAction').hidden=!S.edit.action}touchPhoto(S.edit);return}
+ if(el.dataset.filter){S.filter[el.dataset.filter]=el.value;renderGrid();return}
+ const le=el.closest('.list-ed');if(le&&el.dataset.li!=null){const key=le.dataset.list,i=+el.dataset.li,arr=S.visit.lists[key];const old=arr[i],nv=el.value;arr[i]=nv;
+  if(old){for(const p of S.photos)if(p[key]===old){p[key]=nv;touchPhoto(p)}if(S.visit.sticky[key]===old)S.visit.sticky[key]=nv;if(S.filter[key]===old)S.filter[key]=nv}touch()}});
+document.addEventListener('keydown',e=>{const el=e.target;if(e.key==='Enter'&&el.dataset&&el.dataset.listNew){e.preventDefault();addListItem(el.dataset.listNew)}});
+function addListItem(key){const inp=$(`[data-list-new="${key}"]`);const v=(inp&&inp.value||'').trim();if(!v)return;if(!S.visit.lists[key].includes(v))S.visit.lists[key].push(v);touch();renderVisitTab();const n=$(`[data-list-new="${key}"]`);if(n)n.focus()}
+$$('.tabbar [data-go]').forEach(b=>b.addEventListener('click',()=>{if(sheetOpen)closeSheet();showTab(b.dataset.go)}));
+
+const ACT={
+ 'sheet-close':()=>closeSheet(),
+ cam:()=>$('#inCamera').click(), gallery:()=>$('#inGallery').click(),
+ gps:()=>{if(GPS.state==='off'||GPS.state==='denied'){LS.set('gps',true);if(GPS.state==='denied'){GPS.state='off'}gpsStart();if(GPS.state==='denied')gpsInfo()}else gpsInfo()},
+ 'gps-off':()=>{LS.set('gps',false);gpsStop();closeSheet()},
+ visits:()=>openVisits(),
+ 'visit-new':async()=>{await flushAll();const v=newVisit();await dbPut('visits',v);closeSheet();S.tab='visit';await loadVisit(v.id)},
+ 'visit-open':async b=>{await flushAll();closeSheet();await loadVisit(b.dataset.id)},
+ 'visit-dup':b=>dupVisit(b.dataset.id), 'visit-del':b=>deleteVisit(b.dataset.id),
+ export:()=>exportVisit(), import:()=>$('#inImport').click(),
+ 'logo-pick':()=>$('#inLogo').click(), 'logo-clear':()=>{S.visit.logo=null;touch();renderVisitTab()},
+ 'list-add':b=>addListItem(b.dataset.list),
+ 'list-del':b=>{S.visit.lists[b.dataset.list].splice(+b.dataset.i,1);touch();renderVisitTab()},
+ 'att-add':()=>{S.visit.attendees.push({name:'',company:'',role:''});touch();renderVisitTab();const r=$$('#attList .att-row');if(r.length)$('input',r[r.length-1]).focus()},
+ 'att-del':b=>{S.visit.attendees.splice(+b.dataset.i,1);touch();renderVisitTab()},
+ sticky:()=>openSheet(`${sheetHead('Tags for new photos')}<div class="sh-body"><p class="hint">Every new photo starts with these tags. Change them as you move around the site.</p>${chipGroup('Separable portion','sp',S.visit.sticky.sp,'st')}${chipGroup('Location / area','loc',S.visit.sticky.loc,'st')}${chipGroup('Category','cat',S.visit.sticky.cat,'st')}<div class="row"><span class="grow"></span><button class="btn primary" data-act="sheet-close">Done</button></div></div>`,{onClose:()=>{if(S.tab==='photos')renderPhotos()}}),
+ chip:b=>{const key=b.dataset.key,mode=b.dataset.mode,val=b.dataset.val;const nv=chipTarget(mode,key)===val?'':val;chipSet(mode,key,nv);setPressed(b.closest('[data-chipwrap]'),nv)},
+ 'chip-new':b=>{const key=b.dataset.key,mode=b.dataset.mode;const wrap=b.closest('[data-chipwrap]');const inp=document.createElement('input');inp.className='chip-input';inp.placeholder='New '+KEYLABEL[key];b.replaceWith(inp);inp.focus();
+  let done=false;const commit=()=>{if(done)return;done=true;const v=inp.value.trim();if(v){if(!S.visit.lists[key].includes(v))S.visit.lists[key].push(v);chipSet(mode,key,v);touch()}
+   wrap.outerHTML=chipGroup(wrap.dataset.label,key,chipTarget(mode,key),mode)};
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit()}else if(e.key==='Escape'){inp.value='';commit()}});inp.addEventListener('blur',commit)},
+ 'photo-open':b=>openPhoto(b.dataset.id),
+ renumber:async()=>{if(!confirm('Renumber all photos 1, 2, 3… in the order they were taken? Pins and the report follow the new numbers.'))return;const l=[...S.photos].sort((a,b)=>a.taken-b.taken||a.n-b.n);l.forEach((p,i)=>p.n=i+1);for(const p of l)await savePhoto(p);renderPhotos();toast('Photos renumbered')},
+ 'ed-prev':()=>{const l=sortedPhotos();const i=l.indexOf(S.edit);if(i>0){const keep=sheetOnClose;openPhoto(l[i-1].id);sheetOnClose=keep}},
+ 'ed-next':()=>{const l=sortedPhotos();const i=l.indexOf(S.edit);if(i>=0&&i<l.length-1){const keep=sheetOnClose;openPhoto(l[i+1].id);sheetOnClose=keep}},
+ 'ed-another':()=>{closeSheet();$('#inCamera').click()},
+ 'ed-del':async()=>{const p=S.edit;if(!p)return;if(!confirm(`Delete photo ${p.n}? This can't be undone.`))return;closeSheet();await deletePhoto(p);if(S.tab==='photos')renderPhotos();if(S.tab==='drawing')refreshDrawingBits();toast(`Photo ${p.n} deleted`)},
+ 'ed-gps':async b=>{const p=S.edit;if(!p)return;b.disabled=true;b.textContent='Getting position…';
+  try{if(GPS.state==='off')gpsStart();const f=await waitForFix(8000);let r=f;if(!r)r=await avgGps(5);p.lat=r.lat;p.lon=r.lon;p.acc=r.acc;p.gpsSrc='device';p.noPin=false;autopin(p);await savePhoto(p);reopenEditor();toast('Position saved')}
+  catch(e){toast(e.message||'No GPS position available',5000);reopenEditor()}},
+ 'ed-place':()=>{const p=S.edit;if(p)startPlace(p.id)},
+ 'ed-repin':async()=>{const p=S.edit;if(!p)return;p.pin=null;p.noPin=false;autopin(p);await savePhoto(p);reopenEditor();toast(p.pin?'Pinned from GPS':'GPS position is outside the calibrated drawings')},
+ 'ed-unpin':async()=>{const p=S.edit;if(!p)return;p.pin=null;p.noPin=true;await savePhoto(p);reopenEditor()},
+ 'ed-clrgps':async()=>{const p=S.edit;if(!p)return;p.lat=p.lon=p.acc=null;p.gpsSrc=null;if(p.pin&&!p.pin.manual)p.pin=null;await savePhoto(p);reopenEditor()},
+ 'dwg-add':()=>$('#inDrawing').click(), 'dwg-edit':()=>openDrawingEdit(),
+ 'dwg-del':async()=>{const d=activeDrawing();if(!d)return;if(!confirm(`Delete drawing "${d.name}"? Photos stay, but their pins on it are removed.`))return;
+  S.visit.drawings=S.visit.drawings.filter(x=>x!==d);await dbDel('blobs',d.blobId);S.visit.activeDrawing=S.visit.drawings[0]?S.visit.drawings[0].id:null;
+  for(const p of S.photos)if(p.pin&&p.pin.d===d.id){p.pin=null;autopin(p);await savePhoto(p)}await saveVisit();closeSheet();renderDrawingTab()},
+ mode:b=>{V.mode=b.dataset.mode;V.placeId=null;renderModeSeg();refreshDrawingBits()},
+ place:b=>startPlace(b.dataset.id),
+ 'place-cancel':()=>{V.mode='view';V.placeId=null;refreshDrawingBits()},
+ zoom:b=>{const v=$('#dwgView');zoomAt(v.clientWidth/2,v.clientHeight/2,+b.dataset.k)},
+ fit:()=>fit(),
+ locate:()=>{const d=activeDrawing();const c=calOf(d);if(!GPS.fix){toast(GPS.state==='off'?'Turn GPS on first (tap the GPS button at the top)':'Waiting for a GPS fix');if(GPS.state==='off')gpsStart();return}
+  if(!c||c.error){toast('Calibrate this drawing first');return}const q=c.toPx(GPS.fix.lat,GPS.fix.lon);if(q.x<-d.w*.5||q.y<-d.h*.5||q.x>d.w*1.5||q.y>d.h*1.5){toast('You are outside this drawing');return}centreOn(q.x,q.y,Math.max(V.s,fitScale()*3));renderMarks()},
+ 'cp-avg':async b=>{b.disabled=true;const out=$('#cpAvg');try{const r=await avgGps(10,(pts,ms)=>{if(out)out.textContent=`${Math.max(0,10-Math.floor(ms/1000))} s · ${pts.length} readings${pts.length?` · best ±${Math.round(Math.min(...pts.map(p=>p.accuracy)))} m`:''}`});
+  $('#cpLat').value=r.lat.toFixed(7);$('#cpLon').value=r.lon.toFixed(7);CP.src=`GPS average of ${r.n}`;CP.acc=r.acc;if(out)out.textContent=`Averaged ${r.n} readings, best ±${Math.round(r.acc)} m.`}catch(e){if(out)out.textContent=e.message}b.disabled=false},
+ 'cp-save':()=>{const d=activeDrawing();const lat=parseFloat($('#cpLat').value),lon=parseFloat($('#cpLon').value);
+  if(!(lat>=-90&&lat<=90&&lon>=-180&&lon<=180)){toast('Enter a valid latitude and longitude in decimal degrees');return}
+  d.ctrl=d.ctrl||[];d.ctrl.push({x:CP.x,y:CP.y,lat,lon,acc:CP.acc||null,src:CP.src||'entered'});touch();closeSheet();autopinAll();refreshDrawingBits();
+  const c=calOf(d);toast(c&&!c.error?(c.n===2?'Calibrated. Add a third point to check accuracy.':`Fit error ±${c.rms.toFixed(1)} m`):(c&&c.error)||'Add one more point to calibrate')},
+ 'cp-del':b=>{const d=activeDrawing();d.ctrl.splice(+b.dataset.i,1);touch();autopinAll();refreshDrawingBits()},
+ 'meet-add':()=>{const m=newMeeting();S.visit.meetings.push(m);S.openMeets.add(m.id);touch();renderMinutes();const d=$(`details[data-mid="${m.id}"]`);if(d)d.scrollIntoView({block:'start'})},
+ 'meet-del':b=>{const m=S.visit.meetings[+b.dataset.m];if(!confirm(`Delete meeting "${m.title||'Untitled'}" and all its items?`))return;S.visit.meetings.splice(+b.dataset.m,1);touch();renderMinutes()},
+ 'matt-add':b=>{S.visit.meetings[+b.dataset.m].attendees.push({name:'',company:'',role:'',status:'Present'});touch();renderMinutes()},
+ 'matt-del':b=>{S.visit.meetings[+b.dataset.m].attendees.splice(+b.dataset.i,1);touch();renderMinutes()},
+ 'matt-copy':b=>{const m=S.visit.meetings[+b.dataset.m];const have=new Set(m.attendees.map(a=>a.name.trim().toLowerCase()));S.visit.attendees.filter(a=>a.name&&!have.has(a.name.trim().toLowerCase())).forEach(a=>m.attendees.push({name:a.name,company:a.company,role:a.role,status:'Present'}));touch();renderMinutes()},
+ 'item-add':b=>{const m=S.visit.meetings[+b.dataset.m];m.items.push(newItem());touch();renderMinutes();const its=$$(`details[data-mid="${m.id}"] .item`);if(its.length){const i=$('input',its[its.length-1]);i.focus()}},
+ 'item-del':b=>{const m=S.visit.meetings[+b.dataset.m];const it=m.items[+b.dataset.i];if((it.topic||it.discussion||it.action)&&!confirm('Delete this item?'))return;m.items.splice(+b.dataset.i,1);touch();renderMinutes()},
+ 'item-mv':b=>{const m=S.visit.meetings[+b.dataset.m],i=+b.dataset.i,j=i+ +b.dataset.d;if(j<0||j>=m.items.length)return;[m.items[i],m.items[j]]=[m.items[j],m.items[i]];touch();renderMinutes()},
+ 'rpt-refresh':()=>buildReport(), 'rpt-print':()=>doPrint()
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const f=ACT[b.dataset.act];if(f){e.preventDefault();f(b,e)}});
+function gpsInfo(){const f=GPS.fix;
+ openSheet(`${sheetHead('GPS')}<div class="sh-body">
+  ${GPS.state==='denied'?`<div class="banner bad"><span>Chrome is blocking location for this page.</span></div><p>Allow location in Chrome's site settings and make sure phone location is on. If you opened this page from a file on the phone (not a https:// address), Chrome always refuses location. Open the hosted version instead. In that case photos still pick up position from the camera's own GPS tag (turn on <b>Location tags</b> in the camera app settings), or host this file on an HTTPS address.</p>`
+  :f?`<div class="posbox"><div class="row"><span class="lbl">Current position</span></div><div class="coords">${fmtLL(f.lat,f.lon)}</div><div class="hint">Accuracy ±${Math.round(f.acc)} m · updated ${Math.round(fixAge()/1000)} s ago</div></div><p class="hint">Under 10 m is good for pinning. Accuracy improves in the open, away from buildings and plant, after a minute or two.</p>`
+  :`<p>Waiting for a position. Make sure phone location is on and you are outdoors.</p>`}
+  <div class="row"><span class="grow"></span>${GPS.state!=='off'?`<button class="btn" data-act="gps-off">Turn GPS off</button>`:''}<button class="btn primary" data-act="sheet-close">Done</button></div></div>`)}
+
+$('#inCamera').addEventListener('change',e=>{const f=[...e.target.files];e.target.value='';if(f.length)addFiles(f,true)});
+$('#inGallery').addEventListener('change',e=>{const f=[...e.target.files];e.target.value='';if(f.length)addFiles(f,false)});
+$('#inDrawing').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)addDrawing(f)});
+$('#inImport').addEventListener('change',e=>{const f=e.target.files[0];e.target.value='';if(f)importFile(f)});
+$('#inLogo').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const bmp=await loadBitmap(f);const c=canvasFrom(bmp,600);S.visit.logo=c.toDataURL(/png/i.test(f.type)?'image/png':'image/jpeg',.9);touch();renderVisitTab()}catch(err){toast(err.message)}});
+window.addEventListener('resize',()=>{if(S.tab==='drawing'&&$('#dwgView')&&!S.view[activeDrawing()?.id])fit()});
+
+/* ================= init ================= */
+(async function init(){setupTabbar();
+ try{db=await openDB()}catch(e){db=null;$('#storageWarn').hidden=false}
+ try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+ let v=null;const cur=LS.get('current',null);if(cur)v=await dbGet('visits',cur);
+ if(!v){const all=(await dbAll('visits'))||[];v=all.sort((a,b)=>b.updated-a.updated)[0]}
+ if(!v){v=newVisit();await dbPut('visits',v);S.tab='visit'}else S.tab=LS.get('tab','photos');
+ if(!['visit','photos','drawing','minutes','report'].includes(S.tab))S.tab='photos';
+ await loadVisit(v.id);setSave(db?'Saved':'Not stored');renderGps();if(LS.get('gps',false))gpsStart();
+ try{if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js')}catch(e){}})();
+</script>
+</body>
+</html>
